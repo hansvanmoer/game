@@ -49,21 +49,83 @@ static void dispose_diagram(struct diagram * diag){
   dispose_deque(&diag->events);
 }
 
-
-static void add_half_edge_to_face(struct face * face, struct half_edge * he){
+static void set_head_half_edge(struct face * face, struct half_edge * he){
   assert(face != NULL);
   assert(he != NULL);
-
-  he->face = face;
+  assert(he->prev == NULL);
+  assert(he->next == NULL);
   
+  he->face = face;
+  if(face->head == NULL){
+    face->head = he;
+    face->tail = he;
+  }else{
+    he->next = face->head;
+    face->head->prev = he;
+    face->head = he;
+  }
+}
+
+
+static void set_tail_half_edge(struct face * face, struct half_edge * he){
+  assert(face != NULL);
+  assert(he != NULL);
+  assert(he->prev == NULL);
+  assert(he->next == NULL);
+  
+  he->face = face;
   if(face->tail == NULL){
     face->head = he;
     face->tail = he;
   }else{
+    he->prev = face->tail;
     face->tail->next = he;
     face->tail = he;
   }
-  he->prev = face->tail;
+}
+
+static void insert_half_edge_before(struct half_edge * pos, struct half_edge * he){
+  assert(pos != NULL);
+  assert(he != NULL);
+  assert(he->prev == NULL);
+  assert(he->next == NULL);
+
+  struct face * face = pos->face;
+  assert(face != NULL);
+  he->face = pos->face;
+  if(pos->prev == NULL){
+    assert(face->head == pos);
+    pos->prev = he;
+    he->next = pos;
+    face->head = he;
+  }else{
+    pos->prev->next = he;
+    he->prev = pos->prev;
+    he->next = pos;
+    pos->prev = he;
+  }
+}
+
+static void insert_half_edge_after(struct half_edge * pos, struct half_edge * he){
+  assert(pos != NULL);
+  assert(he != NULL);
+  assert(he->prev == NULL);
+  assert(he->next == NULL);
+
+  struct face * face = pos->face;
+  assert(face != NULL);
+  he->face = face;
+  if(pos->next == NULL){
+    assert(face->tail == pos);
+    pos->next = he;
+    he->prev = pos;
+    face->tail = he;
+  }else{
+    pos->next->prev = he;
+    he->next = pos->next;
+    he->prev = pos;
+    pos->next = he;
+  }
 }
 
 static double get_priority(struct event * event){
@@ -476,12 +538,18 @@ static bool check_for_remove_events(struct diagram * diag, struct node * node, d
     event->left = NULL;
     event->right = NULL;
     insert_event(diag, event);
+    node->arc.event = event;
   }
   return false;
 }
 
 /*
  * Creates a pair of open ended half edges for a split arc and a new one
+ * Note: this function should be called AFTER the new arc has been introduced into the scanline, not before
+ * split_arc = the arc that was split, now the arc to the left of the new arc
+ * new_arc = the newly introduced arc
+ * left_edge_node = the edge between the split arc and the new arc
+ * right_edge_node = the edge between the new arc and the clone arc
  */
 static bool create_half_edge_pair(struct diagram * diag, struct node * split_arc, struct node * new_arc, struct node * left_edge_node, struct node * right_edge_node){
   assert(diag != NULL);
@@ -513,11 +581,25 @@ static bool create_half_edge_pair(struct diagram * diag, struct node * split_arc
   right_he->twin = left_he;
   right_he->prev = NULL;
   right_he->next = NULL;
-
-  // the left half edge is always clock wise to the split arc's face, the right one to the new arc's face
-  add_half_edge_to_face(split_arc->arc.face, left_he);
-  add_half_edge_to_face(new_arc->arc.face, right_he);
-
+  
+  struct face * split_face = split_arc->arc.face;
+  struct node * prev_node = get_prev_node(split_arc);
+  if(prev_node == NULL){
+    // add the left half edge at the end of the split arc's face
+    set_tail_half_edge(split_face, left_he);
+  }else{
+    assert(prev_node->type == NODE_TYPE_HALF_EDGE);
+    // add the left half edge before 
+    struct half_edge * prev_he = prev_node->half_edge.half_edge;
+    if(prev_he->face != split_face){
+      prev_he = prev_he->twin;
+    }
+    assert(prev_he->face == split_face);
+    insert_half_edge_before(prev_he, left_he);
+  }
+  // the right half edge is always the first edge of the new face
+  set_head_half_edge(new_arc->arc.face, right_he);
+  
   left_edge_node->half_edge.half_edge = left_he;
   right_edge_node->half_edge.half_edge = right_he;
   return false;
@@ -705,12 +787,10 @@ static bool close_half_edges(struct diagram * diag, struct node * left_he_node, 
 /*
  * Creates a half edge pair but closes one and sets the other on the new half edge node
  */
-static bool create_half_edge(struct diagram * diag, struct node * left_arc_node, struct node * right_arc_node, struct node * he_node){
+static bool create_edge_after_remove_arc(struct diagram * diag, struct half_edge * left_he, struct half_edge * right_he, struct node * he_node){
   assert(diag != NULL);
-  assert(left_arc_node != NULL);
-  assert(left_arc_node->type == NODE_TYPE_ARC);
-  assert(right_arc_node != NULL);
-  assert(right_arc_node->type == NODE_TYPE_ARC);
+  assert(left_he != NULL);
+  assert(right_he != NULL);
   assert(he_node != NULL);
   assert(he_node->type == NODE_TYPE_HALF_EDGE);
 
@@ -740,8 +820,8 @@ static bool create_half_edge(struct diagram * diag, struct node * left_arc_node,
   open->next = NULL;
 
   //closed is always attached to the right arc's face, open to the left
-  add_half_edge_to_face(left_arc_node->arc.face, open);
-  add_half_edge_to_face(right_arc_node->arc.face, closed);
+  insert_half_edge_after(left_he, open);
+  insert_half_edge_before(right_he, closed);
 
   he_node->half_edge.half_edge = open;
   
@@ -765,6 +845,16 @@ static bool handle_remove_arc_event(struct diagram * diag, struct node * node, d
   struct node * ra = get_next_node(re);
   assert(ra != NULL);
   assert(ra->type == NODE_TYPE_ARC);
+
+  struct face * face = node->arc.face;
+  struct half_edge * left_he = le->half_edge.half_edge;
+  if(left_he->face == face){
+    left_he = left_he->twin;
+  }
+  struct half_edge * right_he = re->half_edge.half_edge;
+  if(right_he->face == face){
+    right_he = right_he->twin;
+  }
 
   if(close_half_edges(diag, le, re, x, y)){
     return true;
@@ -825,7 +915,7 @@ static bool handle_remove_arc_event(struct diagram * diag, struct node * node, d
   anc->half_edge.dx = edx;
   anc->half_edge.dy = edy;
 
-  if(create_half_edge(diag, la, ra, anc)){
+  if(create_edge_after_remove_arc(diag, left_he, right_he, anc)){
     return true;
   }
 
