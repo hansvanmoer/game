@@ -551,7 +551,7 @@ static bool check_for_remove_events(struct diagram * diag, struct node * node, d
  * left_edge_node = the edge between the split arc and the new arc
  * right_edge_node = the edge between the new arc and the clone arc
  */
-static bool create_half_edge_pair(struct diagram * diag, struct node * split_arc, struct node * new_arc, struct node * left_edge_node, struct node * right_edge_node){
+static bool create_edge_after_insert_arc(struct diagram * diag, struct node * split_arc, struct node * new_arc, struct node * left_edge_node, struct node * right_edge_node){
   assert(diag != NULL);
   assert(split_arc != NULL);
   assert(split_arc->type == NODE_TYPE_ARC);
@@ -692,7 +692,7 @@ static bool split_node(struct diagram * diag, struct node * split, struct node *
     return true;
   }
 
-  if(create_half_edge_pair(diag, split, node, le, re)){
+  if(create_edge_after_insert_arc(diag, split, node, le, re)){
     return true;
   }
   
