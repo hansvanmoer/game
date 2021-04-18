@@ -20,8 +20,6 @@
 
 #include "deque.h"
 
-#include <stdbool.h>
-
 struct vertex{
   double x;
   double y;

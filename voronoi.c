@@ -882,6 +882,27 @@ static bool is_within_bounds(double bound, double value){
   return value > -d && value < (bound + d);
 }
 
+static bool is_close_to_bound(double bound, double max, double value){
+  double d = FP_TOLERANCE * max;
+  return value > bound - d && value < bound + d;
+}
+
+static void fix_to_bounds(struct diagram * diag, struct vertex * v){
+  assert(diag != NULL);
+  assert(v != NULL);
+
+  if(is_close_to_bound(0, diag->width, v->x)){
+    v->x = 0;
+  }else if(is_close_to_bound(diag->width, diag->width, v->x)){
+    v->x = diag->width;
+  }
+  if(is_close_to_bound(0, diag->height, v->y)){
+    v->y = 0;
+  }else if(is_close_to_bound(diag->height, diag->height, v->y)){
+    v->y = diag->height;
+  }
+}
+
 static bool intersect_with_bound(struct diagram * diag, struct node * he_node, double bx, double by, double bdx, double bdy){
   assert(diag != NULL);
   assert(he_node != NULL);
@@ -917,6 +938,7 @@ static bool intersect_with_bound(struct diagram * diag, struct node * he_node, d
 	}
 	vertex->x = x;
 	vertex->y = y;
+	fix_to_bounds(diag, vertex);
 	he->vertex = vertex;
 	return false;
       }else{
