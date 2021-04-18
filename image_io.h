@@ -15,38 +15,15 @@
  *
  */
 
+#ifndef IMAGE_IO_H
+#define IMAGE_IO_H
 
-#include "edge_list.h"
 #include "render.h"
-#include "status.h"
-#include "voronoi.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-static bool test_voronoi_diagram(){
-  
-  struct edge_list el;
-  init_edge_list(&el);
+bool write_pixels(FILE * file, struct pixel * pixels, size_t width, size_t height);
 
-  if(create_voronoi_diagram(&el, 10, 1000, 1000)){
-    dispose_edge_list(&el);
-    return true;
-  }
-
-  puts("result:");
-  print_edge_list(&el);
-  
-  dispose_edge_list(&el);
-  return false;
-}
-
-int main(int argc, const char * args[]){
-  
-  if(test_voronoi_diagram()){
-    printf("an error occurred: '%s'", get_status_msg(get_status()));
-    return EXIT_FAILURE;
-  }
-  
-  return EXIT_SUCCESS;
-}
+#endif

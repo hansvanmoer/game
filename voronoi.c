@@ -26,11 +26,12 @@
 
 #define FP_TOLERANCE 0.0001
 
-static void init_diagram(struct diagram * diag, double width, double height){
+static void init_diagram(struct diagram * diag, struct edge_list * el, double width, double height){
   assert(diag != NULL);
-  init_deque(&diag->vertices, sizeof(struct vertex), 0);
-  init_deque(&diag->half_edges, sizeof(struct half_edge), 0);
-  init_deque(&diag->faces, sizeof(struct face), 0);
+  assert(el != NULL);
+
+  diag->el = el;
+  
   init_deque(&diag->nodes, sizeof(struct node), 0);
   init_deque(&diag->events, sizeof(struct event), 0);
 
@@ -42,90 +43,9 @@ static void init_diagram(struct diagram * diag, double width, double height){
 
 static void dispose_diagram(struct diagram * diag){
   assert(diag != NULL);
-  dispose_deque(&diag->vertices);
-  dispose_deque(&diag->half_edges);
-  dispose_deque(&diag->faces);
+
   dispose_deque(&diag->nodes);
   dispose_deque(&diag->events);
-}
-
-static void set_head_half_edge(struct face * face, struct half_edge * he){
-  assert(face != NULL);
-  assert(he != NULL);
-  assert(he->prev == NULL);
-  assert(he->next == NULL);
-  
-  he->face = face;
-  if(face->head == NULL){
-    face->head = he;
-    face->tail = he;
-  }else{
-    he->next = face->head;
-    face->head->prev = he;
-    face->head = he;
-  }
-}
-
-
-static void set_tail_half_edge(struct face * face, struct half_edge * he){
-  assert(face != NULL);
-  assert(he != NULL);
-  assert(he->prev == NULL);
-  assert(he->next == NULL);
-  
-  he->face = face;
-  if(face->tail == NULL){
-    face->head = he;
-    face->tail = he;
-  }else{
-    he->prev = face->tail;
-    face->tail->next = he;
-    face->tail = he;
-  }
-}
-
-static void insert_half_edge_before(struct half_edge * pos, struct half_edge * he){
-  assert(pos != NULL);
-  assert(he != NULL);
-  assert(he->prev == NULL);
-  assert(he->next == NULL);
-
-  struct face * face = pos->face;
-  assert(face != NULL);
-  he->face = pos->face;
-  if(pos->prev == NULL){
-    assert(face->head == pos);
-    pos->prev = he;
-    he->next = pos;
-    face->head = he;
-  }else{
-    pos->prev->next = he;
-    he->prev = pos->prev;
-    he->next = pos;
-    pos->prev = he;
-  }
-}
-
-static void insert_half_edge_after(struct half_edge * pos, struct half_edge * he){
-  assert(pos != NULL);
-  assert(he != NULL);
-  assert(he->prev == NULL);
-  assert(he->next == NULL);
-
-  struct face * face = pos->face;
-  assert(face != NULL);
-  he->face = face;
-  if(pos->next == NULL){
-    assert(face->tail == pos);
-    pos->next = he;
-    he->prev = pos;
-    face->tail = he;
-  }else{
-    pos->next->prev = he;
-    he->next = pos->next;
-    he->prev = pos;
-    pos->next = he;
-  }
 }
 
 static double get_priority(struct event * event){
@@ -383,7 +303,7 @@ static bool add_faces(struct diagram * diag, size_t face_count){
   face_count = sizeof(pts) / (2*sizeof(double));
   
   for(size_t i = 0; i < face_count; ++i){
-    struct face * f = emplace_onto_deque(&diag->faces);
+    struct face * f = emplace_face(diag->el);
     if(f == NULL){
       return true;
     }
@@ -391,8 +311,6 @@ static bool add_faces(struct diagram * diag, size_t face_count){
     //f->y = rand_double_range(0, diag->height);
     f->x = pts[i*2];
     f->y = pts[i*2+1];
-    f->head = NULL;
-    f->tail = NULL;
 
     struct event * e = emplace_onto_deque(&diag->events);
     if(e == NULL){
@@ -562,25 +480,17 @@ static bool create_edge_after_insert_arc(struct diagram * diag, struct node * sp
   assert(right_edge_node != NULL);
   assert(right_edge_node->type == NODE_TYPE_HALF_EDGE);
   
-  struct half_edge * left_he = emplace_onto_deque(&diag->half_edges);
+  struct half_edge * left_he = emplace_half_edge(diag->el);
   if(left_he == NULL){
     return true;
   }
-  struct half_edge * right_he = emplace_onto_deque(&diag->half_edges);
+  struct half_edge * right_he = emplace_half_edge(diag->el);
   if(right_he == NULL){
     return true;
   }
-  left_he->vertex = NULL;
-  left_he->face = NULL;
   left_he->twin = right_he;
-  left_he->prev = NULL;
-  left_he->next = NULL;
 
-  right_he->vertex = NULL;
-  right_he->face = NULL;
   right_he->twin = left_he;
-  right_he->prev = NULL;
-  right_he->next = NULL;
   
   struct face * split_face = split_arc->arc.face;
   struct node * prev_node = get_prev_node(split_arc);
@@ -772,7 +682,7 @@ static bool close_half_edges(struct diagram * diag, struct node * left_he_node, 
   assert(right_he_node != NULL);
   assert(right_he_node->type == NODE_TYPE_HALF_EDGE);
 
-  struct vertex * vertex = emplace_onto_deque(&diag->vertices);
+  struct vertex * vertex = emplace_vertex(diag->el);
   if(vertex == NULL){
     return true;
   }
@@ -794,15 +704,15 @@ static bool create_edge_after_remove_arc(struct diagram * diag, struct half_edge
   assert(he_node != NULL);
   assert(he_node->type == NODE_TYPE_HALF_EDGE);
 
-  struct vertex * vertex = emplace_onto_deque(&diag->vertices);
+  struct vertex * vertex = emplace_vertex(diag->el);
   if(vertex == NULL){
     return true;
   }
-  struct half_edge * closed = emplace_onto_deque(&diag->half_edges);
+  struct half_edge * closed = emplace_half_edge(diag->el);
   if(closed == NULL){
     return true;
   }
-  struct half_edge * open = emplace_onto_deque(&diag->half_edges);
+  struct half_edge * open = emplace_half_edge(diag->el);
   if(open == NULL){
     return true;
   }
@@ -811,13 +721,8 @@ static bool create_edge_after_remove_arc(struct diagram * diag, struct half_edge
   
   closed->vertex = vertex;
   closed->twin = open;
-  closed->prev = NULL;
-  closed->next = NULL;
 
-  open->vertex = NULL;
   open->twin = closed;
-  open->prev = NULL;
-  open->next = NULL;
 
   //closed is always attached to the right arc's face, open to the left
   insert_half_edge_after(left_he, open);
@@ -1006,7 +911,7 @@ static bool intersect_with_bound(struct diagram * diag, struct node * he_node, d
       double y = ey + sys.vars[0] * edy;
       if(is_within_bounds(diag->width, x) && is_within_bounds(diag->height, y)){
 	//intersection within bounding box
-	struct vertex * vertex = emplace_onto_deque(&diag->vertices);
+	struct vertex * vertex = emplace_vertex(diag->el);
 	if(vertex == NULL){
 	  return true;
 	}
@@ -1099,61 +1004,17 @@ static void print_nodes(struct diagram * diag){
   }
 }
 
-static void print_half_edge(struct half_edge * he){
-  assert(he != NULL);
-  struct half_edge * twin = he->twin;
-  assert(twin != NULL);
-  struct vertex * v = he->vertex;
-  struct vertex * tv = twin->vertex;
-  if(v == NULL){
-    if(tv == NULL){
-      fputs("\thalf edge NONE -> NONE\n", stdout);
-    }else{
-      printf("\thalf edge NONE -> (%.2f, %.2f)\n", tv->x, tv->y);
-    }
-  }else if(tv == NULL){
-    printf("\thalf edge (%.2f, %.2f) -> NONE\n", v->x, v->y);
-  }else{
-    printf("\thalf edge (%.2f, %.2f) -> (%.2f, %.2f)\n", v->x, v->y, tv->x, tv->y);
-  }
-}
-
-static void print_face(struct face * face){
-  assert(face != NULL);
-
-  printf("face:\n\tsite(%.2f, %.2f)\n", face->x, face->y);
-  struct half_edge * he = face->head;
-  while(he != NULL){
-    print_half_edge(he);
-    he = he->next;
-  }
-}
-
-static void print_faces(struct diagram * diag){
-  assert(diag != NULL);
-
-  puts("faces:");
-  struct deque_iter iter;
-  init_deque_iter(&iter, &diag->faces);
-  while(has_next_deque_iter(&iter)){
-    struct face * f = get_deque_iter(&iter);
-    print_face(f);
-    next_deque_iter(&iter);
-  } 
-}
-
 static void print_diagram(struct diagram * diag){
   assert(diag != NULL);
-  
-  print_faces(diag);
   print_events(diag);
   print_nodes(diag);
+  print_edge_list(diag->el);
 }
 
-bool create_voronoi_diagram(size_t face_count, double width, double height){
+bool create_voronoi_diagram(struct edge_list * result, size_t face_count, double width, double height){
   
   struct diagram diag;
-  init_diagram(&diag, width, height);
+  init_diagram(&diag, result, width, height);
 
   if(add_faces(&diag, face_count)){
     dispose_diagram(&diag);
@@ -1174,7 +1035,7 @@ bool create_voronoi_diagram(size_t face_count, double width, double height){
   }
   
   print_diagram(&diag);
-  
+
   dispose_diagram(&diag);
   return false;
 }

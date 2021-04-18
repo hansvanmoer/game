@@ -12,6 +12,7 @@ AC_PROG_CC
 
 # Checks for libraries.
 AC_SEARCH_LIBS([sqrt], [m], [], [AC_MSG_ERROR([unable to find math library])])
+AC_SEARCH_LIBS([png_create_write_struct], [png], [], [AC_MSG_ERROR([unable to find libpng library])])
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdbool.h stdlib.h])

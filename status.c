@@ -21,7 +21,9 @@ static const char * status_msg[] = {
 				    "ok",
 				    "memory allocation failed",
 				    "no solution for linear system",
-				    "infinite solutions for linear system"
+				    "infinite solutions for linear system",
+				    "invalid image size",
+				    "PNG error"
 };
 
 _Thread_local enum status_code cur_status = STATUS_OK;

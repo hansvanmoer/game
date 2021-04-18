@@ -22,7 +22,9 @@ enum status_code{
 		 STATUS_OK,
 		 STATUS_MALLOC_FAILED,
 		 STATUS_NO_SOLUTION,
-		 STATUS_INF_SOLUTIONS
+		 STATUS_INF_SOLUTIONS,
+		 STATUS_INVALID_IMAGE_SIZE,
+		 STATUS_PNG_ERROR
 };
 
 const char * get_status_msg(enum status_code sc);

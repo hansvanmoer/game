@@ -20,30 +20,9 @@
 #define VORONOI_H
 
 #include "deque.h"
+#include "edge_list.h"
 
 #include <stdbool.h>
-
-struct vertex{
-  double x;
-  double y;
-};
-
-struct face;
-
-struct half_edge{
-  struct vertex * vertex;
-  struct half_edge * twin;
-  struct face * face;
-  struct half_edge * prev;
-  struct half_edge * next;
-};
-
-struct face{
-  double x;
-  double y;
-  struct half_edge * head;
-  struct half_edge * tail;
-};
 
 enum event_type{
 		EVENT_TYPE_ADD_ARC,
@@ -102,9 +81,7 @@ struct node{
 };
 
 struct diagram{
-  struct deque vertices;
-  struct deque half_edges;
-  struct deque faces;
+  struct edge_list * el;
   struct deque nodes;
   struct deque events;
 
@@ -114,8 +91,6 @@ struct diagram{
   struct event * root_event;
 };
 
-void test_intersection();
-
-bool create_voronoi_diagram(size_t face_count, double width, double height);
+bool create_voronoi_diagram(struct edge_list * el, size_t face_count, double width, double height);
 
 #endif
