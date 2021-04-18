@@ -20,6 +20,7 @@
 static const char * status_msg[] = {
 				    "ok",
 				    "memory allocation failed",
+				    "input/output error",
 				    "no solution for linear system",
 				    "infinite solutions for linear system",
 				    "invalid image size",

@@ -7,6 +7,9 @@
 *.o
 /game
 
+# Test output
+/output.png
+
 # Autools products
 
 .deps
