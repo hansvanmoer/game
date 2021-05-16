@@ -58,18 +58,18 @@ struct vertex * emplace_vertex(struct edge_list * el);
 
 struct half_edge * emplace_half_edge(struct edge_list * el);
 
+struct half_edge * emplace_edge(struct edge_list * el);
+
 struct face * emplace_face(struct edge_list * el);
 
 void print_edge_list(const struct edge_list * el);
 
 void dispose_edge_list(struct edge_list * el);
 
-void set_head_half_edge(struct face * face, struct half_edge * he);
+void connect_half_edges(struct half_edge * first, struct half_edge * second);
 
-void set_tail_half_edge(struct face * face, struct half_edge * he);
+bool project_half_edge_on_bounds(struct edge_list * el, struct half_edge * he, double x, double y, double dx, double dy, double width, double height);
 
-void insert_half_edge_before(struct half_edge * pos, struct half_edge * he);
-
-void insert_half_edge_after(struct half_edge * pos, struct half_edge * he);
+bool close_face_with_bounds(struct edge_list * el, struct face * face, double width, double height);
 
 #endif

@@ -24,7 +24,32 @@ static const char * status_msg[] = {
 				    "no solution for linear system",
 				    "infinite solutions for linear system",
 				    "invalid image size",
-				    "PNG error"
+				    "PNG error",
+				    "invalid program argument",
+				    "thread creation failed",
+				    "could not join thread",
+				    "could not cancel thread",
+				    "could not set thread attribute",
+				    "could not create mutex",
+				    "could not destroy mutex",
+				    "mutex lock failed",
+				    "mutex unlock failed",
+				    "could not create condition variable",
+				    "could not signal condition variable",
+				    "error waiting on condition variable",
+				    "could not destroy condition variable",
+				    "invalid server state",
+				    "socket creation failed",
+				    "signal handler registration failed",
+				    "no valid sever address could be found",
+				    "socket error",
+				    "could not create encoder",
+				    "encoding error",
+				    "protocol error",
+				    "invalid ipc state",
+				    "ipc connection limit reached",
+				    "invalid ipc recipient",
+				    "could not set signal mask"
 };
 
 _Thread_local enum status_code cur_status = STATUS_OK;

@@ -51,6 +51,8 @@ void draw_line(struct surface * s, double xs, double ys, double xe, double ye);
 
 void draw_point(struct surface * s, double x, double y);
 
+void fill_rect(struct surface * s, double x, double y, double w, double h);
+
 bool write_surface(FILE * dest, struct surface * s);
 
 void dispose_surface(struct surface * s);

@@ -16,37 +16,49 @@
  */
 
 
+#include "client.h"
 #include "edge_list.h"
+#include "logger.h"
+#include "program.h"
 #include "render.h"
+#include "server.h"
+#include "settings.h"
+#include "signal_utils.h"
 #include "status.h"
 #include "voronoi.h"
 
 #include <assert.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 static bool draw_edge_list(struct edge_list * el){
   assert(el != NULL);
 
   struct surface s;
-  init_surface(&s, 1000, 1000);
+  init_surface(&s, 1001, 1001);
   set_surface_clear_color(&s, 0, 0, 0);
   clear_surface(&s);
   
   for(struct face * f = el->head; f != NULL; f = f->next){
     assert(f->head != NULL);
     set_surface_color(&s, 255, 255, 0);
-    draw_point(&s, f->x, f->y);
+    fill_rect(&s, f->x - 3, f->y - 3, 7, 7);
     
     set_surface_color(&s, 255, 255, 255);
-    for(struct half_edge * he = f->head; he != NULL; he = he->next){
-      struct vertex * start = he->vertex;
-      assert(start != NULL);
-      assert(he->twin != NULL);
-      struct vertex * end = he->twin->vertex;
-      assert(end != NULL);
-
-      draw_line(&s, start->x, start->y, end->x, end->y);
+    if(f->head != NULL){
+      struct half_edge * he = f->head;
+      do{
+	struct vertex * start = he->vertex;
+	assert(start != NULL);
+	assert(he->twin != NULL);
+	struct vertex * end = he->twin->vertex;
+	assert(end != NULL);
+	
+	draw_line(&s, start->x, start->y, end->x, end->y);
+	he = he->next;
+      }while(he != f->head);
     }
   }
 
@@ -82,12 +94,34 @@ static bool test_voronoi_diagram(){
   return result;
 }
 
-int main(int argc, const char * args[]){
-  
-  if(test_voronoi_diagram()){
-    printf("an error occurred: '%s'", get_status_msg(get_status()));
+
+int main(int argc, char * const args[]){
+
+  if(init_signals()){
+    fputs("could not initialize signal handler", stderr);
     return EXIT_FAILURE;
   }
+  
+  struct program_settings settings = {false, false, LOG_PRIORITY_ERROR};
+  if(load_program_settings(&settings, argc, args)){
+    fprintf(stderr, "an error occurred: '%s'\n", get_status_msg(get_status()));
+    return EXIT_FAILURE;
+  }
+  
+  if(start_logger(stdout)){
+    fputs("unable to start logger\n", stderr);
+    return EXIT_FAILURE;
+  }
+  
+  set_min_log_priority(settings.log_priority);
+  
+  log_program_settings(&settings);
+
+  if(run_program_loop(&settings)){
+    LOG_ERROR("program loop terminated with errors");
+  }
+  
+  stop_logger();
   
   return EXIT_SUCCESS;
 }

@@ -201,6 +201,27 @@ void draw_point(struct surface * s, double x, double y){
   }
 }
 
+void fill_rect(struct surface * s, double x, double y, double w, double h){
+  assert(s != NULL);
+  if(w < 0){
+    x-= w;
+    w = -w;
+  }
+  if(h < 0){
+    y-= h;
+    h = -h;
+  }
+  int sx = (int)x;
+  int sy = (int)y;
+  int ex = (int)(x+w);
+  int ey = (int)(y+h);
+  for(int px = sx; px < ex; ++px){
+    for(int py = sy; py < ey; ++py){
+      plot_pixel(s, px, py);
+    }
+  }
+}
+
 bool write_surface(FILE * file, struct surface * s){
   assert(s != NULL);
   assert(file != NULL);

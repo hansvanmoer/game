@@ -24,8 +24,6 @@
 #include <math.h>
 #include <stdio.h>
 
-#define FP_TOLERANCE 0.0001
-
 static void init_diagram(struct diagram * diag, struct edge_list * el, double width, double height){
   assert(diag != NULL);
   assert(el != NULL);
@@ -289,6 +287,27 @@ static void replace_child(struct diagram * diag, struct node * parent, struct no
   new_child->parent = parent;
 }
 
+
+static void print_node(struct node * node){
+  assert(node != NULL);
+  if(node->type == NODE_TYPE_ARC){
+    struct face * f = node->arc.face;
+    printf("arc node (%.2f, %.2f)\n", f->x, f->y); 
+  }else{
+    printf("half edge node (%.2f, %.2f) + k (%.2f, %.2f)\n", node->half_edge.x, node->half_edge.y, node->half_edge.dx, node->half_edge.dy);
+  }
+}
+
+static void print_nodes(struct diagram * diag){
+  assert(diag != NULL);
+  puts("nodes:");
+  struct node * node = get_first_node(diag);
+  while(node != NULL){
+    print_node(node);
+    node = get_next_node(node);
+  }
+}
+
 static bool add_faces(struct diagram * diag, size_t face_count){
   assert(diag != NULL);
   assert(face_count != 0);
@@ -298,7 +317,10 @@ static bool add_faces(struct diagram * diag, size_t face_count){
   double pts[] = {
 		  400, 400,
 		  200, 600,
-		  600, 650
+		  600, 650,
+		  500, 750,
+		  100, 900,
+		  900, 950
   };
   face_count = sizeof(pts) / (2*sizeof(double));
   
@@ -399,7 +421,7 @@ static double get_y(struct face * face, double x, double ly){
   get_parabola(&p, face, ly);
   
   double y = x*x*p.a + x*p.b + p.c;
-  printf("P: (%.4f, %.4f)\n", x, y);
+  //printf("P: (%.4f, %.4f)\n", x, y);
   return y;
 }
 
@@ -407,6 +429,12 @@ static bool check_for_remove_events(struct diagram * diag, struct node * node, d
   assert(diag != NULL);
   assert(node != NULL);
   assert(node->type == NODE_TYPE_ARC);
+
+  //remove previous event
+  if(node->arc.event != NULL){
+    remove_event(diag, node->arc.event);
+  }
+  
   struct node * left = get_prev_node(node);
   if(left == NULL){
     return false;
@@ -418,6 +446,12 @@ static bool check_for_remove_events(struct diagram * diag, struct node * node, d
   }
   assert(right->type == NODE_TYPE_HALF_EDGE);
 
+  printf("check for removal of arc for site (%.2f, %.2f)\n", node->arc.face->x, node->arc.face->y);
+  printf("left half edge: (%.2f, %2.f) + k (%.2f, %.2f)\n", left->half_edge.x, left->half_edge.y, left->half_edge.dx, left->half_edge.dy);
+  printf("right half edge: (%.2f, %2.f) + k (%.2f, %.2f)\n", right->half_edge.x, right->half_edge.y, right->half_edge.dx, right->half_edge.dy);
+
+  
+  
   struct linear2 sys;
   set_linear2_col(&sys, 0, left->half_edge.dx, left->half_edge.dy);
   set_linear2_col(&sys, 1, - right->half_edge.dx, - right->half_edge.dy);
@@ -429,18 +463,14 @@ static bool check_for_remove_events(struct diagram * diag, struct node * node, d
 
   double x = left->half_edge.x + sys.vars[0] * left->half_edge.dx;
   double y = left->half_edge.y + sys.vars[0] * left->half_edge.dy;
-  printf("solution: (%.4f, %.4f) sy = %.4f\n", x, y, sy);
+  //printf("solution: (%.4f, %.4f) sy = %.4f\n", x, y, sy);
   double dx = node->arc.face->x - x;
   double dy = node->arc.face->y - y;
   double ey = y + sqrt(dx*dx+dy*dy);
   
   //only interested if the sides actually converge
-  if(ey > sy){
-    printf("arc will be removed at y = %.4f\n", ey);
-    //remove previous event
-    if(node->arc.event != NULL){
-      remove_event(diag, node->arc.event);
-    }
+  if(sys.vars[0] >= 0 && sys.vars[1] >= 0 && ey > sy){
+    printf("arc for site (%.2f, %.2f) will be removed at y = %.4f with intersection (%.2f, %2.f)\n", node->arc.face->x, node->arc.face->y, ey, x, y);
     
     struct event * event = emplace_onto_deque(&diag->events);
     if(event == NULL){
@@ -468,8 +498,10 @@ static bool check_for_remove_events(struct diagram * diag, struct node * node, d
  * new_arc = the newly introduced arc
  * left_edge_node = the edge between the split arc and the new arc
  * right_edge_node = the edge between the new arc and the clone arc
+ * Note that the half edges are linked to each other so that twin(he) works, but not to the faces
+ * That happens only after they intersect either with another half edge or with the bounding box
  */
-static bool create_edge_after_insert_arc(struct diagram * diag, struct node * split_arc, struct node * new_arc, struct node * left_edge_node, struct node * right_edge_node){
+static bool update_edges_after_insert_arc(struct diagram * diag, struct node * split_arc, struct node * new_arc, struct node * left_edge_node, struct node * right_edge_node){
   assert(diag != NULL);
   assert(split_arc != NULL);
   assert(split_arc->type == NODE_TYPE_ARC);
@@ -480,38 +512,37 @@ static bool create_edge_after_insert_arc(struct diagram * diag, struct node * sp
   assert(right_edge_node != NULL);
   assert(right_edge_node->type == NODE_TYPE_HALF_EDGE);
   
-  struct half_edge * left_he = emplace_half_edge(diag->el);
+  struct half_edge * left_he = emplace_edge(diag->el);
   if(left_he == NULL){
     return true;
   }
-  struct half_edge * right_he = emplace_half_edge(diag->el);
-  if(right_he == NULL){
-    return true;
-  }
-  left_he->twin = right_he;
+  struct half_edge * right_he = left_he->twin;
 
-  right_he->twin = left_he;
-  
   struct face * split_face = split_arc->arc.face;
-  struct node * prev_node = get_prev_node(split_arc);
-  if(prev_node == NULL){
-    // add the left half edge at the end of the split arc's face
-    set_tail_half_edge(split_face, left_he);
-  }else{
-    assert(prev_node->type == NODE_TYPE_HALF_EDGE);
-    // add the left half edge before 
-    struct half_edge * prev_he = prev_node->half_edge.half_edge;
-    if(prev_he->face != split_face){
-      prev_he = prev_he->twin;
-    }
-    assert(prev_he->face == split_face);
-    insert_half_edge_before(prev_he, left_he);
-  }
-  // the right half edge is always the first edge of the new face
-  set_head_half_edge(new_arc->arc.face, right_he);
+  assert(split_face != NULL);
+  struct face * new_face = new_arc->arc.face;
+  assert(new_face != NULL);
+  
+  left_he->twin = right_he;
+  left_he->face = split_face;
+  right_he->twin = left_he;
+  right_he->face = new_face;
   
   left_edge_node->half_edge.half_edge = left_he;
+
+  assert(new_face->head == NULL);
+  new_face->head = right_he;
+  new_face->tail = right_he;
+
   right_edge_node->half_edge.half_edge = right_he;
+
+ if(split_face->head == NULL){
+    assert(split_face->tail == NULL);
+    //if no edges exist for this arc then it is the first one in the tree
+    split_face->head = left_he;
+    split_face->tail = left_he;
+  }
+  
   return false;
 }
 
@@ -572,6 +603,7 @@ static bool split_node(struct diagram * diag, struct node * split, struct node *
   le->half_edge.x = x;
   le->half_edge.y = y;
   le->half_edge.dx =  - dx; // the inverse of the direction vector
+  assert(le->half_edge.dx <= 0); // left edge must point to the left
   le->half_edge.dy =  - dy;
   printf("create two half edges from (%.4f, %.4f) in direction (%.4f, %.4f)\n", x, y, dx, dy); 
   replace_child(diag, split->parent, split, le);
@@ -594,6 +626,9 @@ static bool split_node(struct diagram * diag, struct node * split, struct node *
   node->parent = re;
   re->right = copy;
   copy->parent = re;
+
+  puts("situation before check for remove events:");
+  print_nodes(diag);
   
   if(check_for_remove_events(diag, split, ly)){
     return true;
@@ -602,7 +637,7 @@ static bool split_node(struct diagram * diag, struct node * split, struct node *
     return true;
   }
 
-  if(create_edge_after_insert_arc(diag, split, node, le, re)){
+  if(update_edges_after_insert_arc(diag, split, node, le, re)){
     return true;
   }
   
@@ -675,60 +710,59 @@ static void replace_node(struct node * node, struct node * child){
   child->parent = node->parent;
 }
 
-static bool close_half_edges(struct diagram * diag, struct node * left_he_node, struct node * right_he_node, double end_x, double end_y){
-  assert(diag != NULL);
-  assert(left_he_node != NULL);
-  assert(left_he_node->type == NODE_TYPE_HALF_EDGE);
-  assert(right_he_node != NULL);
-  assert(right_he_node->type == NODE_TYPE_HALF_EDGE);
-
-  struct vertex * vertex = emplace_vertex(diag->el);
-  if(vertex == NULL){
-    return true;
-  }
-  vertex->x = end_x;
-  vertex->y = end_y;
-
-  left_he_node->half_edge.half_edge->vertex = vertex;
-  right_he_node->half_edge.half_edge->vertex = vertex;
-  return false;
-}
-
 /*
  * Creates a half edge pair but closes one and sets the other on the new half edge node
+ * left_he: the edge coming in from the left
+ * right_he: the edge coming in from the right
+ * face: the face between the two half edges
+ * he_node: the new half edge node pointing away from the intersection
  */
-static bool create_edge_after_remove_arc(struct diagram * diag, struct half_edge * left_he, struct half_edge * right_he, struct node * he_node){
+static bool update_edges_after_remove_arc(struct diagram * diag,
+					  struct node * he_node,
+					  struct half_edge * left,
+					  struct half_edge * right){
   assert(diag != NULL);
-  assert(left_he != NULL);
-  assert(right_he != NULL);
+  assert(left != NULL);
+  assert(left->face != NULL);
+  assert(right != NULL);
+  assert(right->face != NULL);
   assert(he_node != NULL);
   assert(he_node->type == NODE_TYPE_HALF_EDGE);
-
-  struct vertex * vertex = emplace_vertex(diag->el);
-  if(vertex == NULL){
-    return true;
-  }
-  struct half_edge * closed = emplace_half_edge(diag->el);
-  if(closed == NULL){
-    return true;
-  }
-  struct half_edge * open = emplace_half_edge(diag->el);
-  if(open == NULL){
-    return true;
-  }
-  vertex->x = he_node->half_edge.x;
-  vertex->y = he_node->half_edge.y;  
   
-  closed->vertex = vertex;
-  closed->twin = open;
+  // create intersection
+  struct vertex * vertex = emplace_vertex(diag->el);
+  vertex->x = he_node->half_edge.x;
+  vertex->y = he_node->half_edge.y;
 
-  open->twin = closed;
+  // close interecting half edges by setting the start point of their twin
+  assert(left->twin != NULL);
+  assert(left->twin->vertex == NULL);
+  left->twin->vertex = vertex;
+  assert(right->twin != NULL);
+  assert(right->twin->vertex == NULL);
+  right->twin->vertex = vertex;
 
-  //closed is always attached to the right arc's face, open to the left
-  insert_half_edge_after(left_he, open);
-  insert_half_edge_before(right_he, closed);
-
-  he_node->half_edge.half_edge = open;
+  //assert close up the face
+  connect_half_edges(right, left->twin);
+  
+  struct half_edge * up = emplace_edge(diag->el);
+  if(up == NULL){
+    return true;
+  }
+  struct half_edge * down = up->twin;
+  
+  
+  up->twin = down;
+  assert(right->twin->face != NULL);
+  up->face = right->twin->face;
+  
+  down->twin = up;
+  down->vertex = vertex;
+  down->face = left->face;
+  he_node->half_edge.half_edge = down;
+  
+  connect_half_edges(left, down);
+  connect_half_edges(up, right->twin);
   
   return false;
 }
@@ -751,19 +785,8 @@ static bool handle_remove_arc_event(struct diagram * diag, struct node * node, d
   assert(ra != NULL);
   assert(ra->type == NODE_TYPE_ARC);
 
-  struct face * face = node->arc.face;
   struct half_edge * left_he = le->half_edge.half_edge;
-  if(left_he->face == face){
-    left_he = left_he->twin;
-  }
   struct half_edge * right_he = re->half_edge.half_edge;
-  if(right_he->face == face){
-    right_he = right_he->twin;
-  }
-
-  if(close_half_edges(diag, le, re, x, y)){
-    return true;
-  }
   
   printf("edge intersection: (%.4f, %.4f) and (%.4f,%.4f) to (%.4f,%.4f)\n", le->half_edge.x, le->half_edge.y, re->half_edge.x, re->half_edge.y, x, y);
   printf("create new edge between sites (%.4f, %.4f) and (%.4f,%.4f)\n", la->arc.face->x, la->arc.face->y, ra->arc.face->x, ra->arc.face->y);
@@ -817,10 +840,13 @@ static bool handle_remove_arc_event(struct diagram * diag, struct node * node, d
     }
   }
   assert(edy > 0);
+  // store intersection and direction vector on new half edge node
+  anc->half_edge.x = x;
+  anc->half_edge.y = y;
   anc->half_edge.dx = edx;
   anc->half_edge.dy = edy;
 
-  if(create_edge_after_remove_arc(diag, left_he, right_he, anc)){
+  if(update_edges_after_remove_arc(diag, anc, left_he, right_he)){
     return true;
   }
 
@@ -867,6 +893,7 @@ static bool handle_event(struct diagram * diag, struct event * event){
   
   printf("handle event at y = %.4f\n", get_priority(event));
   print_event(event);
+
   if(event->type == EVENT_TYPE_ADD_ARC){
     return handle_add_arc_event(diag, event->add_arc.face);
   }else{
@@ -874,107 +901,21 @@ static bool handle_event(struct diagram * diag, struct event * event){
   }
 }
 
-/**
- * TODO: do this better
- */
-static bool is_within_bounds(double bound, double value){
-  double d = FP_TOLERANCE * bound;
-  return value > -d && value < (bound + d);
-}
-
-static bool is_close_to_bound(double bound, double max, double value){
-  double d = FP_TOLERANCE * max;
-  return value > bound - d && value < bound + d;
-}
-
-static void fix_to_bounds(struct diagram * diag, struct vertex * v){
-  assert(diag != NULL);
-  assert(v != NULL);
-
-  if(is_close_to_bound(0, diag->width, v->x)){
-    v->x = 0;
-  }else if(is_close_to_bound(diag->width, diag->width, v->x)){
-    v->x = diag->width;
-  }
-  if(is_close_to_bound(0, diag->height, v->y)){
-    v->y = 0;
-  }else if(is_close_to_bound(diag->height, diag->height, v->y)){
-    v->y = diag->height;
-  }
-}
-
-static bool intersect_with_bound(struct diagram * diag, struct node * he_node, double bx, double by, double bdx, double bdy){
-  assert(diag != NULL);
-  assert(he_node != NULL);
-  assert(he_node->type == NODE_TYPE_HALF_EDGE);
-  
-  double ex = he_node->half_edge.x;
-  double ey = he_node->half_edge.y;
-  double edx = he_node->half_edge.dx;
-  double edy = he_node->half_edge.dy;
-
-  struct half_edge * he = he_node->half_edge.half_edge;
-  assert(he != NULL);
-  assert(he->vertex == NULL);
-  
-  // check left vertical edge
-  struct linear2 sys;
-  set_linear2_col(&sys, 0, edx, edy);
-  set_linear2_col(&sys, 1, - bdx , - bdy);
-  set_linear2_col(&sys, 2, ex - bx, ey - by);
-  if(!solve_linear2(&sys)){
-    /*
-     * Since this are half edges, the direction vertices are pointed away from the cells
-     * This means that we can distinguish between the two intersection solutions by only checking the one with k > 0
-     */
-    if(sys.vars[0] >= 0){
-      double x = ex + sys.vars[0] * edx;
-      double y = ey + sys.vars[0] * edy;
-      if(is_within_bounds(diag->width, x) && is_within_bounds(diag->height, y)){
-	//intersection within bounding box
-	struct vertex * vertex = emplace_vertex(diag->el);
-	if(vertex == NULL){
-	  return true;
-	}
-	vertex->x = x;
-	vertex->y = y;
-	fix_to_bounds(diag, vertex);
-	he->vertex = vertex;
-	return false;
-      }else{
-	set_status(STATUS_NO_SOLUTION);
-      }
-    }else{
-      set_status(STATUS_NO_SOLUTION);
-    }
-  }
-  return true;
-}
-
 static bool close_open_half_edge(struct diagram * diag, struct node * he_node){
   assert(diag != NULL);
   assert(he_node != NULL);
   assert(he_node->type == NODE_TYPE_HALF_EDGE);
   assert(he_node->half_edge.half_edge != NULL);
-  assert(he_node->half_edge.half_edge->vertex == NULL);
 
-  double points[] = {0, 0, diag->width, diag->height};
-  double dirs[] = {0, 1, 1, 0};
-
-  for(int pi = 0; pi < 4; pi+=2){
-    for(int di = 0; di < 4; di+=2){
-      if(intersect_with_bound(diag, he_node, points[pi], points[pi + 1], dirs[di] ,  dirs[di+1])){
-	if(get_status() != STATUS_NO_SOLUTION && get_status() != STATUS_INF_SOLUTIONS){
-	  return true;
-	}
-      }else{
-	return false;
-      }
-    }
-  }
-  // something is wrong: no intersection with any of the bounds
-  set_status(STATUS_NO_SOLUTION);
-  return true;
+  // we must use the x, y, dx, dy stored on the node because the half edges might not have end points
+  return project_half_edge_on_bounds(diag->el,
+				     he_node->half_edge.half_edge,
+				     he_node->half_edge.x,
+				     he_node->half_edge.y,
+				     he_node->half_edge.dx,
+				     he_node->half_edge.dy,
+				     diag->width,
+				     diag->height);
 }
 
 static bool close_open_half_edges(struct diagram * diag){
@@ -1006,24 +947,15 @@ static bool close_open_half_edges(struct diagram * diag){
   return false;
 }
 
-static void print_node(struct node * node){
-  assert(node != NULL);
-  if(node->type == NODE_TYPE_ARC){
-    struct face * f = node->arc.face;
-    printf("arc node (%.2f, %.2f)\n", f->x, f->y); 
-  }else{
-    printf("half edge node (%.2f, %.2f)\n", node->half_edge.x, node->half_edge.y);
-  }
-}
-
-static void print_nodes(struct diagram * diag){
+static bool close_open_faces(struct diagram * diag){
   assert(diag != NULL);
-  puts("nodes:");
-  struct node * node = get_first_node(diag);
-  while(node != NULL){
-    print_node(node);
-    node = get_next_node(node);
+
+  for(struct face * f = diag->el->head; f != NULL; f = f->next){
+    if(close_face_with_bounds(diag->el, f, diag->width, diag->height)){
+      return true;
+    }
   }
+  return false;
 }
 
 static void print_diagram(struct diagram * diag){
@@ -1050,9 +982,18 @@ bool create_voronoi_diagram(struct edge_list * result, size_t face_count, double
     if(handle_event(&diag, event)){
       return true;
     }
+    puts("nodes after event:");
+    print_nodes(&diag);
   }
 
   if(close_open_half_edges(&diag)){
+    return true;
+  }
+
+  puts("before bounds:");
+  print_edge_list(diag.el);
+  
+  if(close_open_faces(&diag)){
     return true;
   }
   
