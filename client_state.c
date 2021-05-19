@@ -15,7 +15,9 @@
  *
  */
 
+#include "client.h"
 #include "client_state.h"
+#include "ipc.h"
 #include "logger.h"
 #include "unicode.h"
 
@@ -24,6 +26,11 @@
 #define CLIENT_STATE_COUNT 9
 
 typedef int (*client_transition_fn)();
+
+struct client_player{
+  char32_t name[PROTOCOL_MAX_NAME_LEN + 1];
+  int id;
+};
 
 static client_transition_fn transitions[CLIENT_STATE_COUNT];
 
@@ -39,15 +46,48 @@ static const char * state_labels[] =  {
 				       "ERROR"
 };
 
+
 static enum client_state state;
 
+static struct client_player players[PROTOCOL_MAX_PLAYER_COUNT];
+static int player_count;
+
+static int add_player(char * name){
+  if(player_count == PROTOCOL_MAX_PLAYER_COUNT){
+    return -1;
+  }
+
+  struct client_player * p = &players[player_count];
+  str_to_unicode_str_checked(p->name, PROTOCOL_MAX_NAME_LEN, name);
+  p->id = -1;
+  ++player_count;
+  return 0;
+}
+
 static int at_client_started(){
-  state = CLIENT_STATE_READY;
+  //TEST CODE: add 1 player
+  add_player("player1");
+  add_player("player2");
+  state = CLIENT_STATE_UNAUTHORIZED;
   return 0;
 }
 
 
 static int at_client_unauthorized(){
+
+  for(size_t i = 0; i < player_count; ++i){
+  
+    struct ipc_msg * msg = create_client_msg();
+    if(msg == NULL){
+      return -1;
+    }
+    
+    init_protocol_auth_req(&msg->payload, players[i].name);
+    send_client_msg(msg);
+  }
+  
+  state = CLIENT_STATE_AUTHORIZING;
+  
   return 0;
 }
 
@@ -55,7 +95,6 @@ static int at_client_unauthorized(){
 static int at_client_authorizing(){
   return 0;
 }
-
 
 static int at_client_rejected(){
   return 0;
@@ -94,6 +133,9 @@ void init_client_state(){
   transitions[CLIENT_STATE_STOPPED] = at_client_stopped;
   transitions[CLIENT_STATE_ERROR] = at_client_error;
   state = CLIENT_STATE_STARTED;
+
+  memset(&players, 0, sizeof(players));
+  player_count = 0;
 }
 
 int update_client_state(){

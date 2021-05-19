@@ -560,6 +560,9 @@ static bool is_running(struct ipc_channel * ch){
 }
 
 static void * produce_ipc_msg(void * arg){
+
+  init_thread();
+  
   struct ipc_channel * ch = (struct ipc_channel *)arg;
   struct ipc_alloc * alloc = ch->receive_queue->queue.alloc;
   
@@ -586,6 +589,9 @@ static void * produce_ipc_msg(void * arg){
 }
 
 static void * consume_ipc_msg(void * arg){
+
+  init_thread();
+  
   struct ipc_channel * ch = (struct ipc_channel *)arg;
  
   while(true){

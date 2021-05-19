@@ -16,6 +16,7 @@
  */
 
 #include "logger.h"
+#include "program.h"
 #include "status.h"
 #include "thread_utils.h"
 
@@ -79,3 +80,6 @@ int enable_thread_cancel(){
   return 0;
 }
 
+void init_thread(){
+  set_min_log_priority(get_program_settings()->log_priority);
+}

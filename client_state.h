@@ -18,6 +18,8 @@
 #ifndef CLIENT_STATE_H
 #define CLIENT_STATE_H
 
+#include <uchar.h>
+
 enum client_state{
 		  CLIENT_STATE_STARTED,
 		  CLIENT_STATE_UNAUTHORIZED,

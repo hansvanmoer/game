@@ -20,16 +20,40 @@
 
 #include <pthread.h>
 
+/**
+ * initializes a mutex and logs an error message on failure
+ */
 int init_named_mutex(pthread_mutex_t * mutex, const char * name);
 
+/**
+ * locks a mutex and logs an error message on failure
+ */
 int lock_named_mutex(pthread_mutex_t * mutex, const char * name);
 
+/**
+ * unlocks a mutex and logs and logs error message on failure
+ */ 
 int unlock_named_mutex(pthread_mutex_t * mutex, const char * name);
 
+/**
+ * disposes a mutex and logs an error message on failure
+ */
 int dispose_named_mutex(pthread_mutex_t * mutex, const char * name);
 
+/**
+ * disables thread cancellation
+ */
 int disable_thread_cancel();
 
+/**
+ * enables thread cancellation
+ */
 int enable_thread_cancel();
+
+/**
+ * to be called after creating a thread
+ * sets log priority according to program settings
+ */
+void init_thread();
 
 #endif

@@ -31,6 +31,8 @@
 
 #define PROTOCOL_STATE_NAME_BUF_LEN 31
 
+#define PROTOCOL_MAX_PLAYER_COUNT 2
+
 enum protocol_msg_type{
 		       PROTOCOL_MSG_TYPE_AUTH_REQ,
 		       PROTOCOL_MSG_TYPE_AUTH_RES,
@@ -38,20 +40,22 @@ enum protocol_msg_type{
 		       PROTOCOL_MSG_TYPE_CLOSE_RES
 };
 
-struct protocol_auth_req_msg{
+const char * get_protocol_msg_type_label(enum protocol_msg_type type);
+
+struct protocol_auth_req{
   char32_t name[PROTOCOL_MAX_NAME_LEN + 1];
 };
 
-struct protocol_auth_res_msg{
+struct protocol_auth_res{
   int id;
   char reason[PROTOCOL_MAX_NAME_LEN + 1];
 };
 
-struct protocol_close_req_msg{
+struct protocol_close_req{
   char reason[PROTOCOL_MAX_NAME_LEN + 1];
 };
 
-struct protocol_close_res_msg{
+struct protocol_close_res{
   int id;
   char reason[PROTOCOL_MAX_NAME_LEN + 1];
 };
@@ -60,10 +64,10 @@ struct protocol_close_res_msg{
 struct protocol_msg{
   enum protocol_msg_type type;
   union{
-    struct protocol_auth_req_msg auth_req;
-    struct protocol_auth_res_msg auth_res;
-    struct protocol_close_req_msg close_req;
-    struct protocol_close_res_msg close_res;
+    struct protocol_auth_req auth_req;
+    struct protocol_auth_res auth_res;
+    struct protocol_close_req close_req;
+    struct protocol_close_res close_res;
   };
 };
 
@@ -84,6 +88,6 @@ int write_protocol_msg(struct protocol_state * ps, int fd, const struct protocol
 
 void dispose_protocol_state(struct protocol_state * ps);
 
-void init_protocol_auth_req_msg(struct protocol_msg *msg, const char32_t * name);
+void init_protocol_auth_req(struct protocol_msg *msg, const char32_t * name);
 
 #endif

@@ -21,6 +21,7 @@
 #include "logger.h"
 #include "program.h"
 #include "server.h"
+#include "server_state.h"
 #include "signal_utils.h"
 #include "status.h"
 #include "thread_utils.h"
@@ -106,6 +107,10 @@ static bool is_running(){
 
 static void * run_server_loop(void * arg){
 
+  init_thread();
+
+  init_server_state();
+  
   server_result = 0;
   
   if(server_result == 0){
@@ -117,12 +122,15 @@ static void * run_server_loop(void * arg){
 	server_result = -1;
 	break;
       }
+      
       if(msg == NULL){
 	LOG_INFO("server loop will exit because there are no more messages");
 	break;
       }
 
-      //todo do stuff with messages
+      if(update_server_state(msg)){
+	server_result = -1;
+      }
       
       if(discard_server_msg(msg)){
 	LOG_ERROR("server loop will exit due to an error");
@@ -131,12 +139,16 @@ static void * run_server_loop(void * arg){
       }
     }
   }
+
+  dispose_server_state();
   
   return (void *)&server_result;
 }
 
 static void * run_client_loop(void * arg){
 
+  init_thread();
+  
   LOG_DEBUG("client loop started");
   
   init_client_state();
