@@ -15,26 +15,19 @@
  *
  */
 
-#ifndef UNICODE_H
-#define UNICODE_H
+#ifndef SERVER_STATE_H
+#define SERVER_STATE_H
 
-#include <stddef.h>
-#include <uchar.h>
+#include "ipc.h"
 
-size_t unicode_strlen(const char32_t * str);
+enum server_state{
+  SERVER_STATE_WAITING_FOR_PLAYERS
+};
 
-void unicode_strncpy(char32_t * dest, const char32_t * src, size_t len);
+int init_server_state();
 
-void unicode_strcpy(char32_t * dest, const char32_t * src);
+int update_server_state(const struct ipc_msg * msg);
 
-size_t unicode_strcpy_checked(char32_t * dest, size_t len, const char32_t * src);
-
-/**
- * TODO: remove this, only for testing purposes
- */
-
-void str_to_unicode_str(char32_t * dest, const char * src);
-
-size_t str_to_unicode_str_checked(char32_t * dest, size_t len, const char * src);
+int dispose_server_state();
 
 #endif

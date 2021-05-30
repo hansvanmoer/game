@@ -30,8 +30,15 @@
 #define PROTOCOL_NETWORK_ENCODING "UTF-8"
 
 static const char * msg_headers[] = {
-				     "AUTHENTICATION REQUEST"
+  "AUTHENTICATION REQUEST",
+  "AUTHENTICATION RESPONSE",
+  "CLOSE REQUEST",
+  "CLOSE RESPONSE"
 };
+
+const char * get_protocol_msg_type_label(enum protocol_msg_type type){
+  return msg_headers[(int)type];
+}
 
 static const char * get_host_encoding(){
   int x = 1;
@@ -167,16 +174,6 @@ static int write_int(struct protocol_state * ps, int i){
   }
 }
 
-static size_t str32len(const char32_t * str){
-  assert(str != NULL);
-  size_t len = 0;
-  while(*str != 0){
-    ++str;
-    ++len;
-  }
-  return len;
-}
-
 static int read_unicode_string(char32_t * buf, size_t size, struct protocol_state * ps){
   assert(buf != NULL);
   assert(ps != NULL);
@@ -191,7 +188,7 @@ static int read_unicode_string(char32_t * buf, size_t size, struct protocol_stat
 
     if(!eof){
       char * in_buf = ps->in_buf + in_left;
-      while(true){
+      while(in_left != PROTOCOL_STATE_IN_BUF_LEN){
 	ssize_t result = read(ps->fd, in_buf, 1);
 	if(result == -1){
 	  LOG_ERROR("error while reading UTF-8 sequence");
@@ -199,13 +196,12 @@ static int read_unicode_string(char32_t * buf, size_t size, struct protocol_stat
 	  return -1;
 	}else if(result == 1){
 	  if(*in_buf == '\n'){
+	    eof = true;
 	    break;
+	  }else{
+	    ++in_left;
+	    ++in_buf;
 	  }
-	}else{
-	  ++in_left;
-	}
-	if(in_left == PROTOCOL_STATE_IN_BUF_LEN){
-	  break;
 	}
       }
     }
@@ -248,11 +244,11 @@ static int write_unicode_string(struct protocol_state * ps, const char32_t * str
   assert(ps != NULL);
   assert(str != NULL);
   char * in_buf = (char*)str;
-  size_t in_left = str32len(str);
+  size_t in_left = unicode_strlen(str) * sizeof(char32_t);
   char * out_buf = ps->out_buf;
   size_t out_left = PROTOCOL_STATE_OUT_BUF_LEN;
   
-  while(true){
+  while(in_left != 0){
     size_t result = iconv(ps->enc, &in_buf, &in_left, &out_buf, &out_left);
     if(result == (size_t)-1){
       if(errno == EILSEQ){
@@ -313,7 +309,7 @@ static int write_msg_header(struct protocol_state * ps, const char * name){
   return write_string(ps, name);
 }
 
-static int read_auth_req_body(struct protocol_auth_req_msg * msg, struct protocol_state * ps){
+static int read_auth_req_body(struct protocol_auth_req * msg, struct protocol_state * ps){
   assert(msg != NULL);
   assert(ps != NULL);
 
@@ -324,7 +320,7 @@ static int read_auth_req_body(struct protocol_auth_req_msg * msg, struct protoco
   return 0;
 }
 
-static int write_auth_req_body(struct protocol_state * ps, const struct protocol_auth_req_msg * msg){
+static int write_auth_req_body(struct protocol_state * ps, const struct protocol_auth_req * msg){
   assert(ps != NULL);
   assert(msg != NULL);
 
@@ -334,28 +330,28 @@ static int write_auth_req_body(struct protocol_state * ps, const struct protocol
   return 0;
 }
 
-static int read_auth_res_body(struct protocol_auth_res_msg * msg, struct protocol_state * ps){
+static int read_auth_res_body(struct protocol_auth_res * msg, struct protocol_state * ps){
   assert(msg != NULL);
   assert(ps != NULL);
   
   return read_int(&msg->id, ps);
 }
 
-static int write_auth_res_body(struct protocol_state * ps, const struct protocol_auth_res_msg * msg){
+static int write_auth_res_body(struct protocol_state * ps, const struct protocol_auth_res * msg){
   assert(ps != NULL);
   assert(msg != NULL);
 
   return write_int(ps, msg->id);
 }
 
-static int read_close_req_body(struct protocol_close_req_msg * msg, struct protocol_state * ps){
+static int read_close_req_body(struct protocol_close_req * msg, struct protocol_state * ps){
   assert(msg != NULL);
   assert(ps != NULL);
   
   return read_string(msg->reason, PROTOCOL_MAX_NAME_LEN, ps);
 }
 
-static int write_close_req_body(struct protocol_state * ps, const struct protocol_close_req_msg * msg){
+static int write_close_req_body(struct protocol_state * ps, const struct protocol_close_req * msg){
   assert(ps != NULL);
   assert(msg != NULL);
 
@@ -363,7 +359,7 @@ static int write_close_req_body(struct protocol_state * ps, const struct protoco
 }
 
 
-static int read_close_res_body(struct protocol_close_res_msg * msg, struct protocol_state * ps){
+static int read_close_res_body(struct protocol_close_res * msg, struct protocol_state * ps){
   assert(msg != NULL);
   assert(ps != NULL);
   if(read_int(&msg->id, ps)){
@@ -372,7 +368,7 @@ static int read_close_res_body(struct protocol_close_res_msg * msg, struct proto
   return read_string(msg->reason, PROTOCOL_MAX_NAME_LEN, ps);
 }
 
-static int write_close_res_body(struct protocol_state * ps, const struct protocol_close_res_msg * msg){
+static int write_close_res_body(struct protocol_state * ps, const struct protocol_close_res * msg){
   assert(ps != NULL);
   assert(msg != NULL);
 
@@ -434,11 +430,11 @@ void dispose_protocol_state(struct protocol_state * ps){
 }
 
 
-void init_protocol_auth_req_msg(struct protocol_msg *msg, const char32_t * name){
+void init_protocol_auth_req(struct protocol_msg *msg, const char32_t * name){
   assert(msg != NULL);
   assert(name != NULL);
 
-  struct protocol_auth_req_msg * body = &msg->auth_req;
+  struct protocol_auth_req * body = &msg->auth_req;
   
   unicode_strcpy_checked(body->name, PROTOCOL_MAX_NAME_LEN, name);
 }

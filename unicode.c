@@ -59,3 +59,31 @@ size_t unicode_strcpy_checked(char32_t * dest, size_t len, const char32_t * src)
   unicode_strncpy(dest, src, len);
   return len;
 }
+
+void str_to_unicode_str(char32_t * dest, const char * src){
+  assert(dest != NULL);
+  assert(src != NULL);
+  
+  while(*src != '\0'){
+    *dest = (char32_t)*src;
+    ++dest;
+    ++src;
+  }
+  *dest = 0;
+}
+
+
+size_t str_to_unicode_str_checked(char32_t * dest, size_t len, const char * src){
+  assert(dest != NULL);
+  assert(src != NULL);
+
+  size_t l = 0;
+  while(*src != '\0' && l != len){
+    *dest = (char32_t)*src;
+    ++dest;
+    ++src;
+    ++l;
+  }
+  *dest = 0;
+  return l;
+}
