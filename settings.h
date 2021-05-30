@@ -25,6 +25,7 @@
 struct program_settings{
   bool server;
   bool client;
+  bool daemon;
   enum log_priority log_priority;
 };
 

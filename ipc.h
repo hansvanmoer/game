@@ -166,6 +166,8 @@ int dispose_ipc_duplex(struct ipc_duplex * d);
 
 int init_ipc_multiplex(struct ipc_multiplex * m, struct ipc_alloc * alloc);
 
+int open_ipc_multiplex(struct ipc_multiplex * m);
+
 int open_ipc_channel(struct ipc_multiplex * m, int fd);
 
 int send_to_ipc_multiplex(struct ipc_multiplex *dest, struct ipc_msg * msg);

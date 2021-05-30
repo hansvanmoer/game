@@ -18,20 +18,23 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include "game.h"
+
 #include <iconv.h>
 #include <uchar.h>
 
 #define DEFAULT_SERVER_HOST "::1"
 #define DEFAULT_SERVER_PORT "50000"
 
-#define PROTOCOL_MAX_NAME_LEN 64
+#define PROTOCOL_STATE_OUT_BUF_LEN 1024
+#define PROTOCOL_STATE_IN_BUF_LEN 1024
 
-#define PROTOCOL_STATE_OUT_BUF_LEN 128
-#define PROTOCOL_STATE_IN_BUF_LEN 128
+#define PROTOCOL_MAX_REASON_LEN 64
 
-#define PROTOCOL_STATE_NAME_BUF_LEN 31
-
-#define PROTOCOL_MAX_PLAYER_COUNT 2
+/**
+ * Must be at least player max name len times 4 bytes
+ */
+#define PROTOCOL_STATE_NAME_BUF_LEN GAME_MAX_PLAYER_NAME_LEN * 4
 
 enum protocol_msg_type{
 		       PROTOCOL_MSG_TYPE_AUTH_REQ,
@@ -43,21 +46,21 @@ enum protocol_msg_type{
 const char * get_protocol_msg_type_label(enum protocol_msg_type type);
 
 struct protocol_auth_req{
-  char32_t name[PROTOCOL_MAX_NAME_LEN + 1];
+  char32_t name[GAME_MAX_PLAYER_NAME_LEN + 1];
 };
 
 struct protocol_auth_res{
   int id;
-  char reason[PROTOCOL_MAX_NAME_LEN + 1];
+  char reason[PROTOCOL_MAX_REASON_LEN + 1];
 };
 
 struct protocol_close_req{
-  char reason[PROTOCOL_MAX_NAME_LEN + 1];
+  char reason[PROTOCOL_MAX_REASON_LEN + 1];
 };
 
 struct protocol_close_res{
   int id;
-  char reason[PROTOCOL_MAX_NAME_LEN + 1];
+  char reason[PROTOCOL_MAX_REASON_LEN + 1];
 };
 
 
@@ -89,5 +92,7 @@ int write_protocol_msg(struct protocol_state * ps, int fd, const struct protocol
 void dispose_protocol_state(struct protocol_state * ps);
 
 void init_protocol_auth_req(struct protocol_msg *msg, const char32_t * name);
+
+void init_protocol_auth_res(struct protocol_msg * msg, int id, const char * reason);
 
 #endif

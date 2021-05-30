@@ -30,7 +30,7 @@ struct ipc_msg * get_received_client_msg();
 
 struct ipc_msg * create_client_msg();
 
-void discard_client_msg(struct ipc_msg * msg);
+void destroy_client_msg(struct ipc_msg * msg);
 
 int send_client_msg(struct ipc_msg * msg);
 

@@ -32,7 +32,7 @@ static pthread_t signal_worker;
 
 static void init_signal_mask(sigset_t * mask){
   sigemptyset(mask);
-  sigaddset(mask, SIGINT);
+  //sigaddset(mask, SIGINT);
   sigaddset(mask, SIGPIPE);
 }
 

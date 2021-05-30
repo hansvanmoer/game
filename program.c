@@ -118,13 +118,12 @@ static void * run_server_loop(void * arg){
       struct ipc_msg * msg;
 
       if(receive_server_msg(&msg)){
-	LOG_ERROR("server loop will exit due to an error");
-	server_result = -1;
-	break;
-      }
-      
-      if(msg == NULL){
-	LOG_INFO("server loop will exit because there are no more messages");
+	if(get_status() == STATUS_IPC_QUEUE_STOPPED){
+	  LOG_INFO("server loop will exit because there are no more messages");
+	}else{
+	  LOG_ERROR("server loop will exit due to an error");
+	  server_result = -1;
+	}
 	break;
       }
 

@@ -31,6 +31,23 @@ size_t unicode_strlen(const char32_t * str){
   return len;
 }
 
+bool unicode_streq(const char32_t * first, const char32_t * second){
+  assert(first != NULL);
+  assert(second != NULL);
+
+  while(true){
+    char32_t f = *first;
+    char32_t s = *second;
+    if(f == 0){
+      return s == 0;
+    }else if(f != s){
+      return false;
+    }
+    ++first;
+    ++second;
+  }
+}
+
 void unicode_strncpy(char32_t * dest, const char32_t * src, size_t len){
   assert(dest != NULL);
   assert(src != NULL);

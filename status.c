@@ -41,6 +41,7 @@ static const char * status_msg[] = {
 				    "invalid server state",
 				    "socket creation failed",
 				    "signal handler registration failed",
+				    "could not set signal mask",
 				    "no valid sever address could be found",
 				    "socket error",
 				    "could not create encoder",
@@ -49,7 +50,9 @@ static const char * status_msg[] = {
 				    "invalid ipc state",
 				    "ipc connection limit reached",
 				    "invalid ipc recipient",
-				    "could not set signal mask",
+				    "ipc queue stopped",
+				    "duplicate player name",
+				    "maximum player count reached",
 				    "invalid resource path"
 };
 
