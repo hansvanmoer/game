@@ -17,7 +17,7 @@ AC_SEARCH_LIBS([pthread_create], [pthread], [], [AC_MSG_ERROR([unable to find PO
 AC_SEARCH_LIBS([iconv_open], [iconv], [], [AC_MSG_ERROR([unable to find iconv library])])
 
 # Checks for header files.
-AC_CHECK_HEADERS([assert.h getopt.h iconv.h netdb.h netinet/in.h stdbool.h stdio.h stdlib.h png.h pthread.h signal.h string.h sys/socket.h  unistd.h])
+AC_CHECK_HEADERS([assert.h getopt.h iconv.h netdb.h netinet/in.h stdbool.h stdio.h stdlib.h png.h pthread.h signal.h string.h sys/socket.h  sys/stat.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL

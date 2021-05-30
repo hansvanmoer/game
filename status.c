@@ -49,7 +49,8 @@ static const char * status_msg[] = {
 				    "invalid ipc state",
 				    "ipc connection limit reached",
 				    "invalid ipc recipient",
-				    "could not set signal mask"
+				    "could not set signal mask",
+				    "invalid resource path"
 };
 
 _Thread_local enum status_code cur_status = STATUS_OK;

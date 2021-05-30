@@ -21,6 +21,7 @@
 #include "logger.h"
 #include "program.h"
 #include "render.h"
+#include "resource.h"
 #include "server.h"
 #include "settings.h"
 #include "signal_utils.h"
@@ -117,9 +118,13 @@ int main(int argc, char * const args[]){
   
   log_program_settings(&settings);
 
-  if(run_program_loop(&settings)){
-    LOG_ERROR("program loop terminated with errors");
+  if(init_resources("abc", "en")){
+    return EXIT_FAILURE;
   }
+  
+  /*if(run_program_loop(&settings)){
+    LOG_ERROR("program loop terminated with errors");
+    }*/
   
   stop_logger();
   
