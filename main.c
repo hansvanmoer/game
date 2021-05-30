@@ -16,17 +16,11 @@
  */
 
 
-#include "client.h"
-#include "edge_list.h"
 #include "logger.h"
 #include "program.h"
-#include "render.h"
-#include "resource.h"
-#include "server.h"
 #include "settings.h"
 #include "signal_utils.h"
 #include "status.h"
-#include "voronoi.h"
 
 #include <assert.h>
 #include <signal.h>
@@ -34,7 +28,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static bool draw_edge_list(struct edge_list * el){
+/*static bool draw_edge_list(struct edge_list * el){
   assert(el != NULL);
 
   struct surface s;
@@ -94,7 +88,7 @@ static bool test_voronoi_diagram(){
   dispose_edge_list(&el);
   return result;
 }
-
+*/
 
 int main(int argc, char * const args[]){
   
@@ -118,13 +112,9 @@ int main(int argc, char * const args[]){
   
   log_program_settings(&settings);
 
-  if(init_resources("abc", "en")){
-    return EXIT_FAILURE;
-  }
-  
-  /*if(run_program_loop(&settings)){
+  if(run_program_loop(&settings)){
     LOG_ERROR("program loop terminated with errors");
-    }*/
+  }
   
   stop_logger();
   

@@ -19,7 +19,7 @@ AC_SEARCH_LIBS([yaml_parser_initialize], [yaml], [], [AC_MSG_ERROR([unable to fi
 
 # Checks for header files.
 
-AC_CHECK_HEADERS([assert.h dirent.h getopt.h iconv.h limits.h netdb.h netinet/in.h stdbool.h stddef.h stdio.h stdlib.h png.h pthread.h signal.h string.h strings.h sys/socket.h sys/stats.h sys/types.h uchar.h unistd.h])
+AC_CHECK_HEADERS([assert.h dirent.h getopt.h iconv.h limits.h netdb.h netinet/in.h stdbool.h stddef.h stdio.h stdlib.h png.h pthread.h signal.h string.h strings.h sys/socket.h sys/stats.h sys/types.h uchar.h unistd.h yaml.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL

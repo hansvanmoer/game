@@ -50,28 +50,34 @@ static int parse_args(struct program_settings * settings, int arg_count, char * 
   assert(args != NULL);
 
   struct option options[] = {
-			     {"server", no_argument, NULL, 's'},
 			     {"client", no_argument, NULL, 'c'},
 			     {"daemon", no_argument, NULL, 'd'},
-			     {"verbosity", required_argument, 0, 'v'},
+			     {"language", required_argument, NULL, 'l'},
+			     {"resource_path", required_argument, NULL, 'r'},
+			     {"server", no_argument, NULL, 's'},
+			     {"verbosity", required_argument, NULL, 'v'},
 			     {NULL, 0, NULL, 0}
   };
 
   int index = 0;
   while(true){
-    int c = getopt_long(arg_count, args, "scv:", options, &index);
+    int c = getopt_long(arg_count, args, "cdl:r:sv:", options, &index);
     if(c == -1){
       break;
     }else if(c == '?'){
       fputs("invalid program argument\n", stderr);
       set_status(STATUS_INVALID_PROGRAM_ARGUMENT);
       return -1;
-    }else if(c == 's'){
-      settings->server = true;
     }else if(c == 'c'){
       settings->client = true;
     }else if(c == 'd'){
       settings->daemon = true;
+    }else if(c == 'l'){
+      settings->language = optarg;
+    }else if(c == 'r'){
+      settings->resource_path = optarg;
+    }else if(c == 's'){
+      settings->server = true;
     }else if(c == 'v'){
       if(parse_verbosity(settings, optarg)){
 	fputs("invalid program argument: invalid verbosity\n", stderr);
@@ -90,6 +96,8 @@ int load_program_settings(struct program_settings * settings, int arg_count, cha
   settings->server = false;
   settings->client = false;
   settings->log_priority = LOG_PRIORITY_ERROR;
+  settings->language = NULL;
+  settings->resource_path = NULL;
   
   return parse_args(settings, arg_count, args);
 }

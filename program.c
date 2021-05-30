@@ -20,6 +20,7 @@
 #include "ipc.h"
 #include "logger.h"
 #include "program.h"
+#include "resource.h"
 #include "server.h"
 #include "server_state.h"
 #include "signal_utils.h"
@@ -255,7 +256,11 @@ static int start_client_loop(){
 
 int run_program_loop(const struct program_settings * s){
   settings = *s;
-
+  
+  if(init_resources(settings.resource_path, settings.language)){
+    return -1;
+  }
+  
   LOG_DEBUG("starting program loop...");
   
   if(init_program_locks()){

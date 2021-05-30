@@ -29,9 +29,15 @@
  * Concatenates both pats
  * Any path separators at the end and beginning of paths are stripped
  * The destination buffer must be at least PATH_MAX + 1 characters long
- * This function returns -1 if the resulting path is too long
+ * This function returns -1 and sets STATUS_PATH_TOO_LONG if the resulting path is too long
  */
-int concat_paths(char * dest, const char * first, const char * second);
+int append_to_path(char * dest, const char * second);
+
+/**
+ * Removes a single file name from the path
+ * Returns -1 and sets STATUS_INVALID_PATH if the path is the root path or empty
+ */
+int remove_from_path(char * dest);
 
 /**
  * Returns true if the supplied path ends with the specified extension, false otherwise

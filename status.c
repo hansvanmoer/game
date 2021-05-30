@@ -53,7 +53,10 @@ static const char * status_msg[] = {
 				    "ipc queue stopped",
 				    "duplicate player name",
 				    "maximum player count reached",
-				    "invalid resource path"
+				    "invalid resource path",
+				    "error parsing yaml file",
+				    "file path too long",
+				    "invalid file path"
 };
 
 _Thread_local enum status_code cur_status = STATUS_OK;
