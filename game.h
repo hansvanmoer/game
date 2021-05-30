@@ -15,29 +15,21 @@
  *
  */
 
-#ifndef UNICODE_H
-#define UNICODE_H
-
-#include <stdbool.h>
-#include <stddef.h>
-#include <uchar.h>
-
-size_t unicode_strlen(const char32_t * str);
-
-bool unicode_streq(const char32_t * first, const char32_t * second);
-
-void unicode_strncpy(char32_t * dest, const char32_t * src, size_t len);
-
-void unicode_strcpy(char32_t * dest, const char32_t * src);
-
-size_t unicode_strcpy_checked(char32_t * dest, size_t len, const char32_t * src);
+#ifndef GAME_H
+#define GAME_H
 
 /**
- * TODO: remove this, only for testing purposes
+ * Game specific application wide constants and types
  */
 
-void str_to_unicode_str(char32_t * dest, const char * src);
+/**
+ * Maximum number of players
+ */
+#define GAME_MAX_PLAYER_COUNT 32
 
-size_t str_to_unicode_str_checked(char32_t * dest, size_t len, const char * src);
+/**
+ * Maximum length of player names
+ */
+#define GAME_MAX_PLAYER_NAME_LEN 64
 
 #endif

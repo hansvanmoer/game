@@ -305,46 +305,33 @@ static int pop_from_ipc_mt_queue(struct ipc_msg ** dest, struct ipc_mt_queue * s
     return -1;
   }
   
-  if(!src->active){
-    if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
-      return -1;
-    }
-    *dest = NULL;
-    return 0;
-  }
   
-  struct ipc_msg * msg = pop_from_ipc_queue(&src->queue);
-  if(msg != NULL){
-    if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
-      return -1;
+  while(true){
+
+    if(!src->active){
+      if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
+	return -1;
+      }
+      set_status(STATUS_IPC_QUEUE_STOPPED);
+      *dest = NULL;
+      return 1;
     }
-    *dest = msg;
-    return 0;
-  }
     
-  if(pthread_cond_wait(&src->cond, &src->mutex)){
-    LOG_ERROR("could not wait on ipc msg queue");
-    set_status(STATUS_WAIT_CV_FAILED);
-    return -1;
-  }
+    struct ipc_msg * msg = pop_from_ipc_queue(&src->queue);
+    if(msg != NULL){
+      if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
+	return -1;
+      }
+      *dest = msg;
+      return 0;
+    }
 
-  if(!src->active){
-    if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
-      enable_thread_cancel();
+    if(pthread_cond_wait(&src->cond, &src->mutex)){
+      LOG_ERROR("could not wait on ipc msg queue");
+      set_status(STATUS_WAIT_CV_FAILED);
       return -1;
     }
-    *dest = NULL;
-    enable_thread_cancel();
-    return 0;
   }
-
-  msg = pop_from_ipc_queue(&src->queue);
-
-  if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
-    return -1;
-  }
-  *dest = msg;
-  return 0;
 }
 
 static int try_pop_from_ipc_mt_queue(struct ipc_msg ** dest, struct ipc_mt_queue * src){
@@ -356,11 +343,12 @@ static int try_pop_from_ipc_mt_queue(struct ipc_msg ** dest, struct ipc_mt_queue
   }
   
   if(!src->active){
+    set_status(STATUS_IPC_QUEUE_STOPPED);
     if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
       return -1;
     }
     *dest = NULL;
-    return 0;
+    return 1;
   }
   
   struct ipc_msg * msg = pop_from_ipc_queue(&src->queue);
@@ -384,7 +372,8 @@ static int move_from_ipc_mt_queue(struct ipc_queue * dest, struct ipc_mt_queue *
     if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
       return -1;
     }
-    return 0;
+    set_status(STATUS_IPC_QUEUE_STOPPED);
+    return 1;
   }
   
   struct ipc_queue q;
@@ -398,21 +387,27 @@ static int move_from_ipc_mt_queue(struct ipc_queue * dest, struct ipc_mt_queue *
     move_onto_ipc_queue(dest, &q);
     return 0;
   }
-    
-  if(pthread_cond_wait(&src->cond, &src->mutex)){
-    LOG_ERROR("could not wait on ipc msg queue");
-    return -1;
-  }
 
-  if(!src->active){
-    if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
+  while(true){
+    
+    if(pthread_cond_wait(&src->cond, &src->mutex)){
+      LOG_ERROR("could not wait on ipc msg queue");
       return -1;
     }
-    return 0;
+    
+    if(!src->active){
+      if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
+	return -1;
+      }
+      set_status(STATUS_IPC_QUEUE_STOPPED);
+      return 1;
+    }
+
+    move_onto_ipc_queue(&q, &src->queue);
+    if(q.head != NULL){
+      break;
+    }
   }
-
-  move_onto_ipc_queue(&q, &src->queue);
-
   if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
     return -1;
   }
@@ -432,7 +427,8 @@ static int try_move_from_ipc_mt_queue(struct ipc_queue * dest, struct ipc_mt_que
     if(unlock_named_mutex(&src->mutex, "ipc mt queue")){
       return -1;
     }
-    return 0;
+    set_status(STATUS_IPC_QUEUE_STOPPED);
+    return 1;
   }
   
   move_onto_ipc_queue(dest, &src->queue);
@@ -644,7 +640,6 @@ static int start_ipc_channel(struct ipc_channel * ch, int fd){
   
   if(pthread_create(&ch->consumer, NULL, &consume_ipc_msg, ch)){
     LOG_ERROR("could not create ipc msg consumer");
-    stop_ipc_mt_queue(ch->receive_queue);   
     stop_ipc_mt_queue(&ch->send_queue);
     ch->state = IPC_STATE_STOPPING;
     unlock_named_mutex(&ch->mutex, "ipc channel");
@@ -654,7 +649,6 @@ static int start_ipc_channel(struct ipc_channel * ch, int fd){
 
   if(pthread_create(&ch->producer, NULL, &produce_ipc_msg, ch)){
     LOG_ERROR("could not create ipc msg producer");
-    stop_ipc_mt_queue(ch->receive_queue);   
     stop_ipc_mt_queue(&ch->send_queue);
     pthread_cancel(ch->consumer);
     pthread_join(ch->consumer, NULL);
@@ -667,7 +661,6 @@ static int start_ipc_channel(struct ipc_channel * ch, int fd){
   ch->state = IPC_STATE_ACTIVE;
   
   if(unlock_named_mutex(&ch->mutex, "ipc channel")){
-    stop_ipc_mt_queue(ch->receive_queue);   
     stop_ipc_mt_queue(&ch->send_queue);
     pthread_cancel(ch->consumer);
     pthread_join(ch->consumer, NULL);

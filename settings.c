@@ -30,6 +30,7 @@ void log_program_settings(const struct program_settings * settings){
   LOG_INFO("program settings:");
   LOG_INFO("server %s", settings->server ? "enabled" : "disabled");
   LOG_INFO("client %s", settings->client ? "enabled" : "disabled");
+  LOG_INFO("interrupt %s", !settings->daemon ? "enabled" : "disabled");  
   LOG_INFO("verbosity: %s", verbosity_args[(int)settings->log_priority]);
 }
 
@@ -51,6 +52,7 @@ static int parse_args(struct program_settings * settings, int arg_count, char * 
   struct option options[] = {
 			     {"server", no_argument, NULL, 's'},
 			     {"client", no_argument, NULL, 'c'},
+			     {"daemon", no_argument, NULL, 'd'},
 			     {"verbosity", required_argument, 0, 'v'},
 			     {NULL, 0, NULL, 0}
   };
@@ -68,6 +70,8 @@ static int parse_args(struct program_settings * settings, int arg_count, char * 
       settings->server = true;
     }else if(c == 'c'){
       settings->client = true;
+    }else if(c == 'd'){
+      settings->daemon = true;
     }else if(c == 'v'){
       if(parse_verbosity(settings, optarg)){
 	fputs("invalid program argument: invalid verbosity\n", stderr);

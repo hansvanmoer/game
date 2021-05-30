@@ -96,15 +96,15 @@ static bool test_voronoi_diagram(){
 
 
 int main(int argc, char * const args[]){
-
-  if(init_signals()){
-    fputs("could not initialize signal handler", stderr);
-    return EXIT_FAILURE;
-  }
   
   struct program_settings settings = {false, false, LOG_PRIORITY_ERROR};
   if(load_program_settings(&settings, argc, args)){
     fprintf(stderr, "an error occurred: '%s'\n", get_status_msg(get_status()));
+    return EXIT_FAILURE;
+  }
+
+  if(init_signals()){
+    fputs("could not initialize signal handler", stderr);
     return EXIT_FAILURE;
   }
   

@@ -141,11 +141,18 @@ int start_server(){
     return -1;
   }
 
+  if(open_ipc_multiplex(&multiplex)){
+     shutdown(listen_socket, SHUT_RDWR);
+     close(listen_socket);
+     return -1;
+  }
+  
   if(pthread_create(&listen_worker, NULL, run_listener, NULL) != 0){
     LOG_ERROR("unable to start server: could not create listen thread");
     set_status(STATUS_CREATE_THREAD_FAILED);
     shutdown(listen_socket, SHUT_RDWR);
     close(listen_socket);
+    close_ipc_multiplex(&multiplex);
     return -1;
   }
 

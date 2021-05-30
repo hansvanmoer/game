@@ -50,6 +50,7 @@ int init_client(){
   }
 
   init_ipc_queue(&client_msg_queue, &alloc);
+  init_ipc_queue(&client_discard_queue, &alloc);
   
   LOG_INFO("client initialized");
 
@@ -151,6 +152,14 @@ int dispose_client(){
     result = -1;
   }
 
+  if(dispose_ipc_queue(&client_msg_queue)){
+    result = -1;
+  }
+  
+  if(dispose_ipc_queue(&client_discard_queue)){
+    result = -1;
+  }
+
   LOG_INFO("client disposed");
 
   return result;
@@ -172,7 +181,7 @@ struct ipc_msg * create_client_msg(){
   return create_ipc_msg(&alloc);
 }
 
-void discard_client_msg(struct ipc_msg * msg){
+void destroy_client_msg(struct ipc_msg * msg){
   push_onto_ipc_queue(&client_discard_queue, msg);
 }
 

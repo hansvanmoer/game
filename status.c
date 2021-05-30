@@ -49,7 +49,10 @@ static const char * status_msg[] = {
 				    "invalid ipc state",
 				    "ipc connection limit reached",
 				    "invalid ipc recipient",
-				    "could not set signal mask"
+				    "ipc queue stopped",
+				    "could not set signal mask",
+				    "duplicate player name",
+				    "maximum player count reached"
 };
 
 _Thread_local enum status_code cur_status = STATUS_OK;

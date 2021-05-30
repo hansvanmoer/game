@@ -77,7 +77,7 @@ static int write_bytes(struct protocol_state * ps, const char * buf, size_t len)
   assert(ps != NULL);
   assert(buf != NULL);
   while(len != 0){
-     ssize_t write_result = write(ps->fd, ps->out_buf, len);
+     ssize_t write_result = write(ps->fd, buf, len);
      if(write_result == -1){
        LOG_ERROR("error while writing byte sequence");
        set_status(STATUS_IO_ERROR);
@@ -313,7 +313,7 @@ static int read_auth_req_body(struct protocol_auth_req * msg, struct protocol_st
   assert(msg != NULL);
   assert(ps != NULL);
 
-  if(read_unicode_string(msg->name, PROTOCOL_MAX_NAME_LEN, ps)){
+  if(read_unicode_string(msg->name, GAME_MAX_PLAYER_NAME_LEN, ps)){
     return -1;
   }
   
@@ -334,21 +334,27 @@ static int read_auth_res_body(struct protocol_auth_res * msg, struct protocol_st
   assert(msg != NULL);
   assert(ps != NULL);
   
-  return read_int(&msg->id, ps);
+  if(read_int(&msg->id, ps)){
+    return -1;
+  }
+  return read_string(msg->reason, PROTOCOL_MAX_REASON_LEN, ps);
 }
 
 static int write_auth_res_body(struct protocol_state * ps, const struct protocol_auth_res * msg){
   assert(ps != NULL);
   assert(msg != NULL);
 
-  return write_int(ps, msg->id);
+  if(write_int(ps, msg->id)){
+    return -1;
+  }
+  return write_string(ps, msg->reason);
 }
 
 static int read_close_req_body(struct protocol_close_req * msg, struct protocol_state * ps){
   assert(msg != NULL);
   assert(ps != NULL);
   
-  return read_string(msg->reason, PROTOCOL_MAX_NAME_LEN, ps);
+  return read_string(msg->reason, PROTOCOL_MAX_REASON_LEN, ps);
 }
 
 static int write_close_req_body(struct protocol_state * ps, const struct protocol_close_req * msg){
@@ -365,7 +371,7 @@ static int read_close_res_body(struct protocol_close_res * msg, struct protocol_
   if(read_int(&msg->id, ps)){
     return -1;
   }
-  return read_string(msg->reason, PROTOCOL_MAX_NAME_LEN, ps);
+  return read_string(msg->reason, PROTOCOL_MAX_REASON_LEN, ps);
 }
 
 static int write_close_res_body(struct protocol_state * ps, const struct protocol_close_res * msg){
@@ -390,7 +396,7 @@ int read_protocol_msg(struct protocol_state * ps, struct protocol_msg * msg, int
   }
   switch(msg->type){
   case PROTOCOL_MSG_TYPE_AUTH_REQ:
-    return read_auth_req_body(&msg->auth_req, ps);
+   return read_auth_req_body(&msg->auth_req, ps);
   case PROTOCOL_MSG_TYPE_AUTH_RES:
     return read_auth_res_body(&msg->auth_res, ps);
   case PROTOCOL_MSG_TYPE_CLOSE_REQ:
@@ -434,7 +440,23 @@ void init_protocol_auth_req(struct protocol_msg *msg, const char32_t * name){
   assert(msg != NULL);
   assert(name != NULL);
 
+  msg->type = PROTOCOL_MSG_TYPE_AUTH_REQ;
   struct protocol_auth_req * body = &msg->auth_req;
   
-  unicode_strcpy_checked(body->name, PROTOCOL_MAX_NAME_LEN, name);
+  unicode_strcpy_checked(body->name, GAME_MAX_PLAYER_NAME_LEN, name);
 }
+
+
+void init_protocol_auth_res(struct protocol_msg * msg, int id, const char * reason){
+  assert(msg != NULL);
+  assert(msg != NULL);
+  assert(id >= -1);
+  assert(strlen(reason) <= PROTOCOL_MAX_REASON_LEN);
+  
+  msg->type = PROTOCOL_MSG_TYPE_AUTH_RES;
+  struct protocol_auth_res * body = &msg->auth_res;
+
+  body->id = id;
+  strcpy(body->reason, reason);
+}
+
