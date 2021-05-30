@@ -47,6 +47,7 @@ int init_server_state(){
   memset(players, 0, sizeof(players));
   player_count = 0;
   state = SERVER_STATE_WAITING_FOR_PLAYERS;
+  return 0;
 }
 
 int update_server_state(const struct ipc_msg * msg){
@@ -62,5 +63,5 @@ int update_server_state(const struct ipc_msg * msg){
 }
 
 int dispose_server_state(){
-  
+  return 0;
 }

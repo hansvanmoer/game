@@ -16,16 +16,73 @@
  */
 
 #include "logger.h"
+#include "path.h"
 #include "resource.h"
 #include "status.h"
 
 #include <assert.h>
+#include <dirent.h>
+#include <errno.h>
+#include <stdbool.h>
+#include <string.h>
 #include <sys/stat.h>
+
+static int load_resources(const char * path, bool (*filter_fn)(const char *), int (load_fn)(const char *)){
+  assert(path != NULL);
+
+  LOG_DEBUG("loading resources from folder '%s'", path);
+  
+  DIR * dir = opendir(path);
+  if(dir == NULL){
+    LOG_ERROR("could not open director '%s': %s", path, strerror(errno));
+    return -1;
+  }
+
+  /*
+   * Note that readdir is not guaranteed to be thread safe, but it should be on most systems
+   * We use readdir instead of readdir_r because the latter has its own set of issues 
+   * and is deprecated on some systems
+   */
+  struct dirent * entry;
+  errno = 0;
+  while((entry = readdir(dir)) != NULL){
+    if(errno == EBADF){
+      LOG_ERROR("could not walk directory %s: %s", path, strerror(errno));
+      closedir(dir);
+      return -1;
+    }
+
+    if((*filter_fn)(entry->d_name)){
+      LOG_DEBUG("loading resources from file '%s'", entry->d_name);
+      if((*load_fn)(entry->d_name)){
+	LOG_ERROR("an error occurred while loading resources from file '%s'", entry->d_name);
+	closedir(dir);
+	return -1;
+      }
+    } 
+  }
+  if(closedir(dir)){
+    LOG_ERROR("could not close directory '%s': %s", path, strerror(errno));
+    return -1;
+  }
+  LOG_DEBUG("resources loaded from directory '%s'", path);
+  return 0;
+}
+
+static bool is_yaml_file(const char * path){
+  return path_has_extension(path, "yaml");
+}
+
+static int load_labels(const char * path){
+  return 0;
+}
 
 int init_resources(const char * resource_path, const char * language){
   assert(resource_path != NULL);
   assert(language != NULL);
 
+  LOG_INFO("loading resources from path '%s' and langauge '%s'...", resource_path, language);
+  
   struct stat st;
 
   if(stat(resource_path, &st)){
@@ -38,9 +95,11 @@ int init_resources(const char * resource_path, const char * language){
     set_status(STATUS_INVALID_RESOURCE_PATH);
     return -1;
   }
-
+  
+  LOG_INFO("resources loaded");
   return 0;
 }
+
 
 const char32_t * get_resource_label(const char * key){
   return NULL;
