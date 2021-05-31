@@ -55,6 +55,8 @@ static const char * status_msg[] = {
 				    "maximum player count reached",
 				    "invalid resource path",
 				    "error parsing yaml file",
+				    "syntax error",
+				    "end of stream",
 				    "file path too long",
 				    "invalid file path"
 };

@@ -221,9 +221,9 @@ int receive_server_msg(struct ipc_msg ** msg){
   return receive_from_ipc_multiplex(msg, &multiplex);
 }
 
-int send_server_msg(struct ipc_msg * msg){
+int send_server_msg(int to, struct ipc_msg * msg){
   assert(msg != NULL);
-
+  msg->recipient = to;
   return send_to_ipc_multiplex(&multiplex, msg);
 }
 

@@ -16,20 +16,106 @@
  */
 
 #include "logger.h"
+#include "memory.h"
 #include "path.h"
 #include "resource.h"
+#include "serialization.h"
 #include "status.h"
+#include "unicode.h"
 
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
+#include <iconv.h>
 #include <stdbool.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <yaml.h>
 
 #define DEFAULT_LANGUAGE_ID "en"
+
+#define INITIAL_KEY_CAP 4096
+
+#define INITIAL_LABEL_CAP 4096
+
+static char * key_buf;
+static size_t key_len;
+static size_t key_cap;
+
+static char32_t * label_buf;
+static size_t label_len;
+static size_t label_cap;
+
+static struct deserializer deserializer;  
+
+static int init_buffers(){
+  key_buf = malloc_checked(INITIAL_KEY_CAP);
+  if(key_buf == NULL){
+    LOG_ERROR("could not allocate resource key buffer");
+    return -1;
+  }
+  key_len = 0;
+  key_cap = INITIAL_KEY_CAP;
+  label_buf = malloc_checked(INITIAL_LABEL_CAP * sizeof(char32_t));
+  if(label_buf == NULL){
+    LOG_ERROR("could not allocate resource value buffer");
+    free(key_buf);
+    return -1;
+  }
+  label_len = 0;
+  label_cap = INITIAL_LABEL_CAP;
+  return 0;
+}
+
+static int add_key(const char * key){
+  assert(key != NULL);
+  size_t len = strlen(key);
+  size_t nlen = key_len + len;
+  if((nlen + 1) > key_cap){
+    size_t ncap = key_cap * 2;
+    char * nbuf = malloc_checked(ncap);
+    if(nbuf == NULL){
+      LOG_ERROR("could not grow resource key buffer");
+      return -1;
+    }
+    memcpy(nbuf, key_buf, key_len);
+    free(key_buf);
+    key_cap = ncap;
+  }
+  memcpy(key_buf + key_len, key, len);
+  key_len += (len + 1);
+  key_buf[key_len + len] = '\0';
+  return 0;
+}
+
+static int shrink_buffers(){
+  if(key_cap > key_len){
+    char * nbuf = malloc_checked(key_len);
+    if(nbuf == NULL){
+      return -1;
+    }
+    memcpy(nbuf, key_buf, key_len);
+    free(key_buf);
+    key_buf = nbuf;
+    key_cap = key_len;
+  }
+  if(label_cap > label_len){
+    char32_t * nbuf = malloc_checked(label_len * sizeof(char32_t));
+    if(nbuf == NULL){
+      return -1;
+    }
+    memcpy(nbuf, label_buf, label_len * sizeof(char32_t));
+    free(label_buf);
+    label_buf = nbuf;
+    label_cap = label_len;
+  }
+  return 0;
+}
+
+static void dispose_buffers(){
+  free(label_buf);
+  free(key_buf);
+}
 
 static int load_resources(char * path, bool (*filter_fn)(const char *), int (load_fn)(const char *)){
   assert(path != NULL);
@@ -82,50 +168,14 @@ static bool is_yaml_file(const char * path){
   return path_has_extension(path, "yaml");
 }
 
-static int load_labels(const char * path){
+static int load_label_file(const char * path){
+
   FILE * file = fopen(path, "r");
-  if(file == NULL){
-    LOG_ERROR("can not open labels file '%s': %s", path, strerror(errno));
-    set_status(STATUS_IO_ERROR);
-    return -1;
-  }
 
-  yaml_parser_t parser;
-  if(yaml_parser_initialize(&parser) == 0){
-    LOG_ERROR("could not initialize yaml parser");
-    set_status(STATUS_YAML_ERROR);
-    fclose(file);
-    return -1;
-  }
+  int result = deserialize_from_file(&deserializer, NULL, file);
 
-  yaml_parser_set_input_file(&parser, file);
-
-  yaml_event_t event;
-
-  int result = 0;
-  bool parse = true;
-  while(parse){
-    if(yaml_parser_parse(&parser, &event) == 0){
-      LOG_ERROR("error parsing yaml file: %s", path);
-      set_status(STATUS_YAML_ERROR);
-      result = -1;
-      parse = false;
-    }else{
-      switch(event.type){
-      case YAML_STREAM_START_EVENT:
-	LOG_DEBUG("start of stream");
-	break;
-      case YAML_STREAM_END_EVENT:
-	LOG_DEBUG("end of stream");
-	parse = false;
-	break;
-      default:
-	break;
-      }
-    }
-  }
-  yaml_parser_delete(&parser);
   fclose(file);
+  
   return result;
 }
 
@@ -152,6 +202,56 @@ static int find_resource_path(char * dest){
   set_status(STATUS_INVALID_RESOURCE_PATH);
   *dest = '\0';
   return -1;
+}
+
+static int add_label(void * state, const char * key, const char32_t * value){
+  puts(key);
+  while(*value != 0){
+    printf("%c ", (char)(*value));
+    ++value;
+  }
+  puts("");
+  return 0;
+}
+
+static int load_labels(char * path, const char * language){
+  
+  if(append_to_path(path, "labels")){
+    LOG_ERROR("could not create labels resource path");
+    return -1;
+  }
+  if(append_to_path(path, language)){
+    LOG_ERROR("could not create localized resource path");
+    return -1;
+  }
+  
+  if(init_deserializer(&deserializer)){
+    return -1;
+  }
+
+  deserializer_expect_map(&deserializer, NULL, NULL);
+  deserializer_expect_unicode_string_entries(&deserializer, add_label);
+
+  if(finalize_deserializer(&deserializer)){
+    dispose_deserializer(&deserializer);
+    return -1;
+  }
+  
+  if(load_resources(path, is_yaml_file, load_label_file)){
+    LOG_ERROR("could not load labels");
+    dispose_deserializer(&deserializer);
+    return -1;
+  }
+
+  dispose_deserializer(&deserializer);
+
+  if(shrink_buffers()){
+    return -1;
+  }
+  
+  remove_from_path(path);
+  remove_from_path(path);
+  return 0;
 }
 
 int init_resources(const char * resource_path, const char * language){
@@ -193,16 +293,12 @@ int init_resources(const char * resource_path, const char * language){
     return -1;
   }
 
-  if(append_to_path(path, "labels")){
-    LOG_ERROR("could not create labels resource path");
+  if(init_buffers()){
     return -1;
   }
-  if(append_to_path(path, language)){
-    LOG_ERROR("could not create localized resource path");
-    return -1;
-  }
-  if(load_resources(path, is_yaml_file, load_labels)){
-    LOG_ERROR("could not load labels");
+  
+  if(load_labels(path, language)){
+    dispose_buffers();
     return -1;
   }
   
@@ -215,4 +311,7 @@ const char32_t * get_resource_label(const char * key){
   return NULL;
 }
 
-void dispose_resources(){}
+void dispose_resources(){
+  LOG_INFO("dispose resources");
+  dispose_buffers();
+}

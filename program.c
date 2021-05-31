@@ -264,17 +264,20 @@ int run_program_loop(const struct program_settings * s){
   LOG_DEBUG("starting program loop...");
   
   if(init_program_locks()){
+    dispose_resources();
     return -1;
   }
 
   if(start_signal_handler()){
     dispose_program_locks();
+    dispose_resources();
     return -1;
   }
 
   if(lock_program_mutex()){
     stop_signal_handler();
     dispose_program_locks();
+    dispose_resources();
     return -1;
   }
 
@@ -344,6 +347,8 @@ int run_program_loop(const struct program_settings * s){
     }
   }
 
+  dispose_resources();
+  
   if(stop_signal_handler()){
     return -1;
   }

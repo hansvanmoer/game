@@ -22,6 +22,10 @@
 #include <stddef.h>
 #include <uchar.h>
 
+#define UTF_8_ENCODING_NAME "UTF-8"
+
+const char * get_unicode_encoding_name();
+
 size_t unicode_strlen(const char32_t * str);
 
 bool unicode_streq(const char32_t * first, const char32_t * second);

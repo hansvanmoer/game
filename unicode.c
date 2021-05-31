@@ -20,6 +20,18 @@
 #include <assert.h>
 #include <string.h>
 
+const char * get_unicode_encoding_name(){
+  int x = 1;
+  if(*((char *)&x) == 1){
+    //little endian
+    return "UTF-32LE";
+  }else{
+    //big endian
+    return "UTF-32BE";
+  }
+}
+
+
 size_t unicode_strlen(const char32_t * str){
   assert(str != NULL);
   

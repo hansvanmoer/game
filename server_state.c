@@ -98,7 +98,7 @@ static int handle_auth_req(const struct protocol_auth_req * req){
     }
   }
   init_protocol_auth_res(&msg->payload, result, reason);
-  return send_server_msg(msg);
+  return send_server_msg(0, msg);
 }
 
 int init_server_state(){

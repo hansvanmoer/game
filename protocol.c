@@ -27,8 +27,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define PROTOCOL_NETWORK_ENCODING "UTF-8"
-
 static const char * msg_headers[] = {
   "AUTHENTICATION REQUEST",
   "AUTHENTICATION RESPONSE",
@@ -40,30 +38,19 @@ const char * get_protocol_msg_type_label(enum protocol_msg_type type){
   return msg_headers[(int)type];
 }
 
-static const char * get_host_encoding(){
-  int x = 1;
-  if(*((char *)&x) == 1){
-    //little endian
-    return "UTF-32LE";
-  }else{
-    //big endian
-    return "UTF-32BE";
-  }
-}
-
 int init_protocol_state(struct protocol_state * ps){
   assert(ps != NULL);
 
-  iconv_t dec = iconv_open(get_host_encoding(), PROTOCOL_NETWORK_ENCODING);
+  iconv_t dec = iconv_open(get_unicode_encoding_name(), UTF_8_ENCODING_NAME);
   if(dec == (iconv_t)-1){
-    LOG_ERROR("could not create encoder from %s to %s", PROTOCOL_NETWORK_ENCODING, get_host_encoding());
+    LOG_ERROR("could not create encoder from %s to %s", UTF_8_ENCODING_NAME, get_unicode_encoding_name());
     set_status(STATUS_CREATE_ENCODER_ERROR);
     return -1;
   }
 
-  iconv_t enc = iconv_open(PROTOCOL_NETWORK_ENCODING, get_host_encoding());
+  iconv_t enc = iconv_open(UTF_8_ENCODING_NAME, get_unicode_encoding_name());
   if(enc == (iconv_t)-1){
-    LOG_ERROR("could not create encoder from %s to %s", get_host_encoding(), PROTOCOL_NETWORK_ENCODING);
+    LOG_ERROR("could not create encoder from %s to %s", get_unicode_encoding_name(), UTF_8_ENCODING_NAME);
      set_status(STATUS_CREATE_ENCODER_ERROR);
      return -1;
   }

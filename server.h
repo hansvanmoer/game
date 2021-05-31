@@ -26,7 +26,7 @@ int start_server();
 
 int receive_server_msg(struct ipc_msg ** msg);
 
-int send_server_msg(struct ipc_msg * msg);
+int send_server_msg(int to, struct ipc_msg * msg);
 
 struct ipc_msg * create_server_msg();
 
