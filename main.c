@@ -91,7 +91,6 @@ static bool test_voronoi_diagram(){
 */
 
 int main(int argc, char * const args[]){
-  
   struct program_settings settings = {false, false, LOG_PRIORITY_ERROR};
   if(load_program_settings(&settings, argc, args)){
     fprintf(stderr, "an error occurred: '%s'\n", get_status_msg(get_status()));
@@ -110,8 +109,8 @@ int main(int argc, char * const args[]){
   
   set_min_log_priority(settings.log_priority);
   
-  log_program_settings(&settings);
-
+  log_program_settings(&settings);  
+  
   if(run_program_loop(&settings)){
     LOG_ERROR("program loop terminated with errors");
   }

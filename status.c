@@ -58,7 +58,9 @@ static const char * status_msg[] = {
 				    "syntax error",
 				    "end of stream",
 				    "file path too long",
-				    "invalid file path"
+				    "invalid file path",
+				    "value not found",
+				    "duplicate key"
 };
 
 _Thread_local enum status_code cur_status = STATUS_OK;

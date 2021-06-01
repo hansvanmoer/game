@@ -15,6 +15,7 @@
  *
  */
 
+#include "hash_map.h"
 #include "logger.h"
 #include "memory.h"
 #include "path.h"
@@ -34,87 +35,68 @@
 
 #define DEFAULT_LANGUAGE_ID "en"
 
-#define INITIAL_KEY_CAP 4096
+#define MISSING_LABEL_PLACEHOLDER U"<MISSING LABEL>"
 
-#define INITIAL_LABEL_CAP 4096
+static struct memory_buffer key_buf;
+static struct memory_buffer label_buf;
+static struct ptr_hash_map label_map;
 
-static char * key_buf;
-static size_t key_len;
-static size_t key_cap;
-
-static char32_t * label_buf;
-static size_t label_len;
-static size_t label_cap;
-
-static struct deserializer deserializer;  
+static struct deserializer deserializer;
 
 static int init_buffers(){
-  key_buf = malloc_checked(INITIAL_KEY_CAP);
-  if(key_buf == NULL){
-    LOG_ERROR("could not allocate resource key buffer");
+  init_memory_buffer(&key_buf, 0);
+  init_memory_buffer(&label_buf, 0);
+
+  if(init_ptr_hash_map(&label_map, hash_map_hash_str, hash_map_eq_str, 0)){
+    LOG_ERROR("could not create label hash map");
+    dispose_memory_buffer(&key_buf);
+    dispose_memory_buffer(&label_buf);
     return -1;
   }
-  key_len = 0;
-  key_cap = INITIAL_KEY_CAP;
-  label_buf = malloc_checked(INITIAL_LABEL_CAP * sizeof(char32_t));
-  if(label_buf == NULL){
-    LOG_ERROR("could not allocate resource value buffer");
-    free(key_buf);
-    return -1;
-  }
-  label_len = 0;
-  label_cap = INITIAL_LABEL_CAP;
   return 0;
 }
 
-static int add_key(const char * key){
+static char * add_key(const char * key){
   assert(key != NULL);
-  size_t len = strlen(key);
-  size_t nlen = key_len + len;
-  if((nlen + 1) > key_cap){
-    size_t ncap = key_cap * 2;
-    char * nbuf = malloc_checked(ncap);
-    if(nbuf == NULL){
-      LOG_ERROR("could not grow resource key buffer");
-      return -1;
-    }
-    memcpy(nbuf, key_buf, key_len);
-    free(key_buf);
-    key_cap = ncap;
+  char * result = copy_to_memory_buffer(&key_buf, key, strlen(key) + 1);
+  if(result == NULL){
+    LOG_ERROR("could not allocate resource key on buffer");
+    return NULL;
   }
-  memcpy(key_buf + key_len, key, len);
-  key_len += (len + 1);
-  key_buf[key_len + len] = '\0';
-  return 0;
+  return result;
 }
 
-static int shrink_buffers(){
-  if(key_cap > key_len){
-    char * nbuf = malloc_checked(key_len);
-    if(nbuf == NULL){
+static int add_label(const char * key, const char32_t * value){
+  assert(key != NULL);
+  assert(value != NULL);
+
+  char * nkey = add_key(key);
+  if(key == NULL){
+    return -1;
+  }
+
+  char32_t * label = copy_to_memory_buffer(&label_buf, value, (unicode_strlen(value) + 1) * sizeof(char32_t));
+  if(label == NULL){
+    LOG_ERROR("could not allocate label on buffer");
+    return -1;
+  }
+
+  if(insert_new_into_ptr_hash_map(&label_map, nkey, label)){
+    if(get_status() == STATUS_DUPLICATE_KEY){
+      LOG_WARNING("duplicate label key %s", nkey);
+    }else{
+      LOG_ERROR("could not add label to map");
       return -1;
     }
-    memcpy(nbuf, key_buf, key_len);
-    free(key_buf);
-    key_buf = nbuf;
-    key_cap = key_len;
   }
-  if(label_cap > label_len){
-    char32_t * nbuf = malloc_checked(label_len * sizeof(char32_t));
-    if(nbuf == NULL){
-      return -1;
-    }
-    memcpy(nbuf, label_buf, label_len * sizeof(char32_t));
-    free(label_buf);
-    label_buf = nbuf;
-    label_cap = label_len;
-  }
+  
   return 0;
 }
 
 static void dispose_buffers(){
-  free(label_buf);
-  free(key_buf);
+  dispose_ptr_hash_map(&label_map);
+  dispose_memory_buffer(&label_buf);
+  dispose_memory_buffer(&key_buf);
 }
 
 static int load_resources(char * path, bool (*filter_fn)(const char *), int (load_fn)(const char *)){
@@ -204,13 +186,10 @@ static int find_resource_path(char * dest){
   return -1;
 }
 
-static int add_label(void * state, const char * key, const char32_t * value){
-  puts(key);
-  while(*value != 0){
-    printf("%c ", (char)(*value));
-    ++value;
+static int handle_label(void * state, const char * key, const char32_t * value){
+  if(add_label(key, value)){
+    return -1;
   }
-  puts("");
   return 0;
 }
 
@@ -230,7 +209,7 @@ static int load_labels(char * path, const char * language){
   }
 
   deserializer_expect_map(&deserializer, NULL, NULL);
-  deserializer_expect_unicode_string_entries(&deserializer, add_label);
+  deserializer_expect_unicode_string_entries(&deserializer, handle_label);
 
   if(finalize_deserializer(&deserializer)){
     dispose_deserializer(&deserializer);
@@ -244,13 +223,10 @@ static int load_labels(char * path, const char * language){
   }
 
   dispose_deserializer(&deserializer);
-
-  if(shrink_buffers()){
-    return -1;
-  }
   
   remove_from_path(path);
   remove_from_path(path);
+
   return 0;
 }
 
@@ -308,7 +284,14 @@ int init_resources(const char * resource_path, const char * language){
 
 
 const char32_t * get_resource_label(const char * key){
-  return NULL;
+  assert(key != NULL);
+
+  char32_t * label = get_from_ptr_hash_map(&label_map, key);
+  if(label == NULL){
+    return MISSING_LABEL_PLACEHOLDER;
+  }else{
+    return label;
+  }
 }
 
 void dispose_resources(){

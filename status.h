@@ -59,7 +59,9 @@ enum status_code{
 		 STATUS_SYNTAX_ERROR,
 		 STATUS_END_OF_STREAM,
 		 STATUS_PATH_TOO_LONG,
-		 STATUS_INVALID_PATH
+		 STATUS_INVALID_PATH,
+		 STATUS_NOT_FOUND,
+		 STATUS_DUPLICATE_KEY
 };
 
 const char * get_status_msg(enum status_code sc);

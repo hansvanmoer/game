@@ -32,7 +32,7 @@ static pthread_t signal_worker;
 
 static void init_signal_mask(sigset_t * mask){
   sigemptyset(mask);
-  sigaddset(mask, SIGINT);
+  sigaddset(mask, SIGQUIT);
   sigaddset(mask, SIGPIPE);
 }
 
@@ -69,7 +69,7 @@ static void * run_signal_worker(){
     }
     // do not cancel while attempting to handle signal
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-    if(signal == SIGINT){
+    if(signal == SIGQUIT){
       request_program_stop();
     }else if(signal == SIGPIPE){
       // happens when server or client writes to socket that is disconnected from the other end

@@ -22,4 +22,19 @@
 
 void * malloc_checked(size_t size);
 
+struct memory_buffer_block;
+
+struct memory_buffer{
+  size_t cap;
+  struct memory_buffer_block * head;
+  struct memory_buffer_block * tail;
+};
+
+void init_memory_buffer(struct memory_buffer * buf, size_t cap);
+
+void * copy_to_memory_buffer(struct memory_buffer * dest, const void * src, size_t len);
+
+void dispose_memory_buffer(struct memory_buffer * buf);
+
+
 #endif

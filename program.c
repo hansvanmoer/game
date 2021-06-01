@@ -298,21 +298,27 @@ int run_program_loop(const struct program_settings * s){
   }
   
   if(result == 0){
-    LOG_DEBUG("program loop started");
-     
-    while(true){
-      if(pthread_cond_wait(&program_cond, &program_mutex)){
-	LOG_ERROR("could not wait for program condition variable");
-	set_status(STATUS_WAIT_CV_FAILED);
-	result = -1;
-	break;
+   
+    if(settings.server || settings.client){
+
+      LOG_DEBUG("program loop started");
+
+      while(true){
+	if(pthread_cond_wait(&program_cond, &program_mutex)){
+	  LOG_ERROR("could not wait for program condition variable");
+	  set_status(STATUS_WAIT_CV_FAILED);
+	  result = -1;
+	  break;
+	}
+	if(!running){
+	  break;
+	}
       }
-      if(!running){
-	break;
-      }
+      LOG_DEBUG("stopping program loop...");
+    }else{
+      LOG_DEBUG("neither client or server is configured to run -> shutting down");
     }
-     
-    LOG_DEBUG("stopping program loop...");
+    
   }
 
    
